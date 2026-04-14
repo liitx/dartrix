@@ -20,6 +20,18 @@ manual chore in test bodies.
 
 ---
 
+## How this file is maintained
+
+This PLAN.md is the prototype reference implementation for what `claudart add` will generate
+automatically for dartrix-using projects. The sections below (Vision, Design principles, What's
+been built, What's next, Key decisions log) are the canonical template shape.
+
+Diagrams live inline — next to the feature they describe. When a feature moves from "what's
+next" to "what's built", the diagram moves with it. README.md is a curated view of this
+file — it never originates content that isn't here first.
+
+---
+
 ## Design principles
 
 **Proven before promoted.**
@@ -81,6 +93,20 @@ This is the compile-time coverage detector — no runtime check can do this.
 - `DartrixMatrix` → `Dartrix`
 
 **Why:** The package name is the class name. `Matrix` suffix was redundant noise.
+
+### Coverage flow — how dartrix enforces completeness
+
+```mermaid
+graph LR
+    A[Domain enum variant] -->|implements AppType| B[features getter]
+    B -->|exhaustive switch| C{New variant added?}
+    C -->|forgot to update switch| D[Compile error — gap caught before tests run]
+    C -->|switch updated| E[features declared]
+    E -->|testSelector / matrix.cover| F[matrix.cover registered]
+    F -->|tearDownAll| G{gaps?}
+    G -->|yes| H[Named test failure: variant × feature]
+    G -->|no| I[✓ all cells covered]
+```
 
 ### v0.1.2 — Selectors
 - `DartrixSelector` interface — `variant`, `feature`, `description`
