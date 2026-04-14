@@ -20,7 +20,7 @@ dartrix makes that silent gap impossible.
 
 ---
 
-## How it works
+## How it works — the matrix
 
 **1. Define your app's features as an enum:**
 
@@ -104,6 +104,63 @@ deleted           ·         ·      ·
 
 ---
 
+## DartrixSelector — typed test selectors
+
+`matrix.cover()` works, but it's manual — scattered in test bodies, easy to forget, easy to call after a failing `expect` (which means it never runs). `DartrixSelector` solves this structurally.
+
+A selector bundles the three things every matrix test needs:
+
+```dart
+abstract interface class DartrixSelector {
+  AppType get variant;      // the enum value under test
+  FeatureType get feature;  // the feature context
+  String get description;   // test name — derive from a fixture, not a bare string
+}
+```
+
+Your app defines concrete selectors that also carry fixture-derived test inputs:
+
+```dart
+class StatusDashboardSelector implements DartrixSelector {
+  const StatusDashboardSelector(this.status);
+  final Status status;
+
+  @override AppType get variant      => status;
+  @override FeatureType get feature  => AppFeature.dashboard;
+  @override String get description   => status.label; // from your fixture extension
+
+  // Fixture-derived inputs — no bare strings
+  Widget get widget => DashboardRow(status: status, label: status.label);
+}
+```
+
+**`testSelector<S>()`** wraps `test()` and registers coverage automatically — no manual `matrix.cover()` needed:
+
+```dart
+for (final status in Status.values.where((s) => s.isActive)) {
+  testSelector(matrix, StatusDashboardSelector(status), (sel) {
+    expect(sel.widget.label, equals(sel.status.label));
+    expect(render(sel.widget), isNotNull);
+    // matrix.cover() fires automatically after body completes
+  });
+}
+```
+
+The generic `S` parameter preserves the concrete selector type — the body receives `StatusDashboardSelector` directly, no cast needed.
+
+### Why selectors over manual cover()
+
+| | `matrix.cover()` | `testSelector()` |
+|---|---|---|
+| Coverage registration | Manual, in body | Automatic, structural |
+| Risk of missing cover | Yes — easy to forget | No |
+| Risk of cover after failed expect | Yes — throws before reaching it | No |
+| Test name | Hardcoded string | `selector.description` |
+| Input construction | Inline in test | Typed getter on selector |
+| Concrete type in body | Cast required | Preserved via `S` |
+
+---
+
 ## The type hierarchy
 
 dartrix ships four marker interfaces your app's enums implement:
@@ -139,6 +196,19 @@ Each variant declares its own participation independently. The matrix unions the
 
 ---
 
+## Planned
+
+- `testSelectorGroup()` — group wrapper for selector loops
+- `coverAll(variants, feature)` — convenience for covering multiple variants at once
+- `DartrixCubit` — Cubit state adapter template (coverage via state emissions)
+- `DartrixBloc` — Bloc adapter template
+- `DartrixRiverpod` — Riverpod provider adapter template
+- `DartrixIsolate` — concurrent/async coverage adapter
+
+See [open issues](https://github.com/liitx/dartrix/issues) for status and context.
+
+---
+
 ## Installation
 
 dartrix is not yet published to pub.dev. Reference it via git:
@@ -159,5 +229,7 @@ Requires Dart SDK `>=3.5.0`.
 
 - **Compile-time over runtime.** Exhaustive switches catch gaps before tests run.
 - **Participation, not just presence.** A variant that genuinely doesn't participate in a feature marks itself `{}` — not a gap, not skipped, declared.
-- **No magic.** dartrix is ~150 lines. No code generation, no reflection, no annotations. Just interfaces, switches, and a map.
+- **Selectors over manual registration.** The selector is the test — it carries the variant, the feature context, and the fixture-derived inputs. Coverage is a consequence, not a chore.
+- **Proven before promoted.** Every dartrix API is validated in a real consumer app before landing in the framework.
+- **No magic.** No code generation, no reflection, no annotations. Just interfaces, switches, and a map.
 - **Scales with your enum count.** 3 variants or 30 — the matrix grows with your domain without changing your test structure.
