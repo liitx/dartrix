@@ -134,6 +134,26 @@ dartrix's documentation and potentially a `testSelectorGroup()` helper.
 
 See zedup's PLAN.md for the full selector backwork plan.
 
+### AppType.getSelector() — enum as selector factory
+
+The current pattern requires a separate selector class per (enum × feature) pair.
+The optimization: every `AppType` variant knows how to produce its own selector.
+
+```dart
+abstract interface class AppType {
+  Set<FeatureType> get features;
+  DartrixSelector getSelector(FeatureType feature); // ← each variant is its own factory
+}
+```
+
+`BranchType.feat.getSelector(ZedFeature.dashboard)` returns a fully configured
+selector — no separate class needed. The enum IS the selector factory.
+
+**Prove in zedup first:** The 7 manual selector classes being built now
+(`BranchTypeDashboardSelector`, `ZedProfileDashboardSelector`, etc.) are the proof.
+Once built, inspect what each carries → that defines `getSelector()`'s contract →
+promote to dartrix → zedup removes the 7 classes.
+
 ### Near-term — framework conveniences
 - `coverAll(variants, feature)` — bulk coverage for tests that legitimately cover all
   variants at once (invariant checks, snapshot tests). Not a replacement for
