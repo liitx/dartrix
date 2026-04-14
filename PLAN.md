@@ -157,6 +157,99 @@ Each adapter proves the pattern in zedup before landing in dartrix:
    need to cross the isolate boundary. This is the hardest adapter — blocked on zedup's
    refresh implementation.
 
+### Validator mode — final form
+
+dartrix's end state is a **non-invasive validator** that runs alongside any existing
+Dart/Flutter project without requiring the author to adopt any new test paradigm.
+
+```mermaid
+graph TD
+    A[dartrix scans project] -->|detects AppType / FeatureType impls| B[builds matrix]
+    B --> C{gaps?}
+    C -->|no| D[✓ full coverage]
+    C -->|yes| E[gapSelectors — List of DartrixSelector metadata]
+    E --> F[writes gaps.json to workspace]
+    F --> G[claudart reads workspace]
+    G --> H[Claude generates missing test via claudart context]
+    H --> I[gap closes on next run]
+```
+
+**What dartrix owns in this mode:**
+- Gap detection (`matrix.gaps()`)
+- Gap metadata (`gapSelectors()` — returns `List<DartrixSelector>` for every uncovered cell)
+- Gap report (`gaps.json` written to claudart workspace — never to the project)
+
+**What claudart owns:**
+- Reading the gap report from workspace
+- Enriching with project context (PLAN.md, skills.md)
+- Passing structured metadata to Claude for test generation
+- CLAUDE.md is the binding — Claude in this workspace speaks through claudart
+
+**What the project owns:**
+- Its existing tests — untouched
+- Its enum mappings (`AppType`, `FeatureType` impls) — opt-in declarations
+- Nothing else changes
+
+The gap report is dartrix-typed — no bare strings. dartrix-native types use
+`DartrixXxx.value` format. Project-mapped types use their Dart class name:
+
+```json
+{
+  "dartrixVersion": "0.1.2",
+  "project": "zedup",
+  "gaps": [
+    {
+      "variant": { "dartrixType": "AppType",     "ref": "WorkStatus.blocked" },
+      "feature":  { "dartrixType": "FeatureType", "ref": "ZedFeature.dashboard" },
+      "methodType": "DartrixMethod.helper",
+      "cellState": "DartrixCellState.gap",
+      "participationDeclared": true,
+      "description": "blocked branch visible in dashboard"
+    }
+  ]
+}
+```
+
+`participationDeclared: true` — variant's `features` switch includes this feature,
+so a test is required, not optional. claudart treats required gaps as bugs, optional
+gaps as suggestions.
+
+### DartrixMethod — method classification axis
+
+Methods are a first-class concern. A class isn't just a type — its methods have
+semantic categories that determine what a complete test looks like:
+
+```dart
+enum DartrixMethod implements FeatureType {
+  factory('object construction — was this type instantiated?'),
+  fetch('async/network — success and failure paths both required'),
+  helper('pure transform — deterministic input/output'),
+  override('dart contract — == toString hashCode');
+
+  const DartrixMethod(this.description);
+  @override final String description;
+}
+```
+
+Projects map their class methods to `DartrixMethod` via `ClassType.methods` —
+same exhaustive switch pattern as `AppType.features`. Adding a method without
+declaring its type = compile error.
+
+`fetch` is special: dartrix knows async methods require two cells — success path
+AND failure path. One test covering only the happy path is still a gap.
+
+**Prove in claudart first** (per prove-before-promote):
+claudart has `TeardownCategory` (8 variants × 3 getters) and `HandoffStatus`
+(5 variants × 1 getter). These are value-correctness matrices — different from
+participation coverage. Migrating claudart's matrices to dartrix proves:
+- Fixture extension pattern as a formal dartrix template
+- Dense coverage (`coverAll()`) for when all variants participate in all features
+- `DartrixMethod` classification on real methods before dartrix commits to the API
+
+**claudart's core workflow (handoff, skills, suggest/debug/teardown) is never
+touched by this migration.** Only the test matrix for claudart's own enums moves
+to dartrix. The workflow is claudart's identity — it stays.
+
 ### When pub.dev
 After:
 - All core APIs stable (matrix, selector, testSelector)
