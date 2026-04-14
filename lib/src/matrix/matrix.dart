@@ -1,17 +1,17 @@
 // matrix.dart — coverage derivation from AppType cross-products
 //
-// DartrixMatrix takes the registered domain enums (as List<AppType> per axis)
+// Dartrix takes the registered domain enums (as List<AppType> per axis)
 // and derives the full coverage matrix:
 //   rows    = domain enum variants (WorkStatus.values, BranchType.values, ...)
 //   columns = features those variants participate in (via AppType.features)
 //   cells   = coverage state: tested | gap | not applicable
 //
 // The matrix does not run tests — it models what needs testing.
-// Tests register their coverage via DartrixMatrix.cover().
-// DartrixMatrix.gaps() returns every uncovered required cell.
+// Tests register their coverage via Dartrix.cover().
+// Dartrix.gaps() returns every uncovered required cell.
 //
 // Usage:
-//   final matrix = DartrixMatrix(
+//   final matrix = Dartrix(
 //     axes: [WorkStatus.values, BranchType.values, ZedProfile.values],
 //     features: ZedFeature.values,
 //   );
@@ -38,8 +38,8 @@ enum CellState {
 
 /// Derives and tracks coverage for a set of domain enum variants
 /// across a set of features.
-class DartrixMatrix {
-  DartrixMatrix({
+class Dartrix {
+  Dartrix({
     required List<List<AppType>> axes,
     required List<FeatureType> features,
   })  : _features = features,

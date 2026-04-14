@@ -59,7 +59,7 @@ Add `Status.suspended` later and forget to update `features`? **Compile error.**
 
 ```dart
 void main() {
-  final matrix = DartrixMatrix(
+  final matrix = Dartrix(
     axes: [Status.values],
     features: AppFeature.values,
   );
@@ -125,7 +125,7 @@ dartrix ships four marker interfaces your app's enums implement:
 The matrix supports multiple domain enums on separate axes — each is crossed against the same feature set:
 
 ```dart
-final matrix = DartrixMatrix(
+final matrix = Dartrix(
   axes: [
     Status.values,
     Role.values,

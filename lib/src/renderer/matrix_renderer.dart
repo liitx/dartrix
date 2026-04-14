@@ -1,4 +1,4 @@
-// matrix_renderer.dart — terminal and string output for DartrixMatrix
+// matrix_renderer.dart — terminal and string output for Dartrix
 //
 // Renders the coverage matrix as:
 //   - terminal table (for dart test output and CLI)
@@ -24,7 +24,7 @@ extension _FeatureTypeName on FeatureType {
 class MatrixRenderer {
   const MatrixRenderer(this.matrix);
 
-  final DartrixMatrix matrix;
+  final Dartrix matrix;
 
   /// Renders the matrix as a plain-text table.
   ///
