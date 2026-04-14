@@ -10,6 +10,16 @@
 //   ·  not applicable — variant does not participate in this feature
 
 import '../matrix/matrix.dart';
+import '../types/app_type.dart';
+import '../types/feature_type.dart';
+
+extension _AppTypeName on AppType {
+  String get name => (this as Enum).name;
+}
+
+extension _FeatureTypeName on FeatureType {
+  String get name => (this as Enum).name;
+}
 
 class MatrixRenderer {
   const MatrixRenderer(this.matrix);

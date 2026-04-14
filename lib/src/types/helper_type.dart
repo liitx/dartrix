@@ -18,6 +18,5 @@
 /// Marker interface for helper enums.
 /// Consumer apps implement this on their own helper enum.
 abstract interface class HelperType {
-  String get name;
   String get description;
 }

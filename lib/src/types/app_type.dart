@@ -25,9 +25,6 @@
 import 'feature_type.dart';
 
 abstract interface class AppType {
-  /// Dart enum name — provided free by every enum via Enum.name.
-  String get name;
-
   /// Human-readable description shown in matrix output.
   String get description;
 

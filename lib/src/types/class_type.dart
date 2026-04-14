@@ -18,6 +18,5 @@
 /// Marker interface for class/model enums.
 /// Consumer apps implement this on their own class enum.
 abstract interface class ClassType {
-  String get name;
   String get description;
 }

@@ -23,6 +23,5 @@
 /// Marker interface for feature enums.
 /// Consumer apps implement this on their own feature enum.
 abstract interface class FeatureType {
-  String get name;
   String get description;
 }

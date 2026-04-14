@@ -21,6 +21,5 @@
 /// Marker interface for component enums.
 /// Consumer apps implement this on their own component enum.
 abstract interface class ComponentType {
-  String get name;
   String get description;
 }
