@@ -1,0 +1,11 @@
+name: dartrix
+description: Enum-driven test matrix framework for Dart — complete coverage, no redundancy.
+version: 0.1.0
+repository: https://github.com/liitx/dartrix
+
+environment:
+  sdk: '>=3.5.0 <4.0.0'
+
+dev_dependencies:
+  lints: ^5.0.0
+  test: ^1.24.0
