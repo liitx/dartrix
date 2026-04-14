@@ -17,3 +17,5 @@ export 'src/types/helper_type.dart';
 export 'src/types/class_type.dart';
 export 'src/matrix/matrix.dart';
 export 'src/renderer/matrix_renderer.dart';
+export 'src/selector/selector.dart';
+export 'src/selector/test_selector.dart';
