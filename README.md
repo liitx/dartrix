@@ -118,7 +118,24 @@ abstract interface class DartrixSelector {
 }
 ```
 
-Your app defines concrete selectors that also carry fixture-derived test inputs:
+**Zero-boilerplate path — `AppType.getSelector()`:**
+
+Every `AppType` variant already knows how to produce its own selector via the built-in extension:
+
+```dart
+for (final status in Status.values.where((s) => s.isActive)) {
+  testSelector(matrix, status.getSelector(AppFeature.dashboard), (sel) {
+    // sel.variant is Status — typed, no cast
+    expect(sel.variant.label, isNotEmpty);
+  });
+}
+```
+
+`status.getSelector(AppFeature.dashboard)` returns a `TypedSelector<Status>` — `sel.variant` is already `Status`, not the base `AppType`. No subclass, no boilerplate. Read all fixture data from `sel.variant` via your fixture extensions.
+
+**Concrete subclass path — when you need typed input getters:**
+
+If the test body needs pre-computed fixture data beyond what `sel.variant` exposes directly (e.g., a constructed widget, a scripted prompt sequence), define a concrete selector:
 
 ```dart
 class StatusDashboardSelector implements DartrixSelector {
@@ -127,21 +144,20 @@ class StatusDashboardSelector implements DartrixSelector {
 
   @override AppType get variant      => status;
   @override FeatureType get feature  => AppFeature.dashboard;
-  @override String get description   => status.label; // from your fixture extension
+  @override String get description   => status.label;
 
   // Fixture-derived inputs — no bare strings
   Widget get widget => DashboardRow(status: status, label: status.label);
 }
 ```
 
-**`testSelector<S>()`** wraps `test()` and registers coverage automatically — no manual `matrix.cover()` needed:
+**`testSelector<S>()`** registers coverage automatically after the body completes:
 
 ```dart
 for (final status in Status.values.where((s) => s.isActive)) {
   testSelector(matrix, StatusDashboardSelector(status), (sel) {
     expect(sel.widget.label, equals(sel.status.label));
-    expect(render(sel.widget), isNotNull);
-    // matrix.cover() fires automatically after body completes
+    // matrix.cover() fires automatically — broken tests never appear covered
   });
 }
 ```
