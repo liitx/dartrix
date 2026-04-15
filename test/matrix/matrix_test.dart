@@ -117,19 +117,19 @@ void main() {
       renderer = MatrixRenderer(matrix);
     });
 
-    test('render — contains all variant names', () {
-      final output = renderer.render();
-      for (final variant in TestType.values) {
-        expect(output, contains(variant.name));
-      }
-    });
+    // One test per variant/feature — loop wraps test(), never inside it.
+    // A failure on 'buster' must be distinguishable from a failure on 'rover'.
+    for (final variant in TestType.values) {
+      test('render — variant name present: ${variant.name}', () {
+        expect(renderer.render(), contains(variant.name));
+      });
+    }
 
-    test('render — contains all feature names', () {
-      final output = renderer.render();
-      for (final feature in TestFeature.values) {
-        expect(output, contains(feature.name));
-      }
-    });
+    for (final feature in TestFeature.values) {
+      test('render — feature name present: ${feature.name}', () {
+        expect(renderer.render(), contains(feature.name));
+      });
+    }
 
     test('render — gap symbol ✗ present before any coverage', () {
       expect(renderer.render(), contains('✗'));
