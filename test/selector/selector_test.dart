@@ -1,68 +1,66 @@
-// selector_test.dart — TypedSelector and AppTypeGetSelector.getSelector()
+// selector_test.dart — TypedSelector, AppTypeGetSelector.getSelector(), testSelector()
 //
-// Verifies that getSelector() produces a TypedSelector where:
-//   - variant is typed as the concrete AppType subtype (no cast needed)
-//   - feature is the passed FeatureType
-//   - description matches AppType.description
+// Three concerns:
+//   1. Selector fields — getSelector() produces correct variant, feature, description
+//      Loop is over TestType.values × variant.features — adding a variant without
+//      updating the exhaustive switch in stubs.dart is a compile error.
+//   2. Type preservation — sel.variant is typed as the concrete enum, no cast needed.
+//   3. Matrix integration — testSelector() registers coverage on a Dartrix instance;
+//      tearDownAll enforces no gaps remain after all loops complete.
 
 import 'package:test/test.dart';
 import 'package:dartrix/dartrix.dart';
 
-// ── Minimal stubs ─────────────────────────────────────────────────────────────
-
-enum _TestFeature implements FeatureType {
-  alpha('Alpha feature'),
-  beta('Beta feature');
-
-  const _TestFeature(this.description);
-
-  @override
-  final String description;
-}
-
-enum _TestType implements AppType {
-  rover,
-  buster;
-
-  @override
-  String get description => name;
-
-  @override
-  Set<FeatureType> get features => switch (this) {
-        _TestType.rover  => {_TestFeature.alpha},
-        _TestType.buster => {_TestFeature.alpha, _TestFeature.beta},
-      };
-}
-
-// ── Tests ─────────────────────────────────────────────────────────────────────
+import '../stubs.dart';
 
 void main() {
-  group('AppTypeGetSelector.getSelector', () {
-    const cases = [
-      (variant: _TestType.rover,  feature: _TestFeature.alpha, expectedDescription: 'rover'),
-      (variant: _TestType.buster, feature: _TestFeature.alpha, expectedDescription: 'buster'),
-      (variant: _TestType.buster, feature: _TestFeature.beta,  expectedDescription: 'buster'),
-    ];
+  // ── Selector field verification ───────────────────────────────────────────
 
-    for (final c in cases) {
-      test('${c.variant}.getSelector(${c.feature})', () {
-        final sel = c.variant.getSelector(c.feature);
-        expect(sel.variant, equals(c.variant));
-        expect(sel.feature, equals(c.feature));
-        expect(sel.description, equals(c.expectedDescription));
-      });
+  group('AppTypeGetSelector.getSelector — selector fields', () {
+    for (final variant in TestType.values) {
+      for (final feature in variant.features) {
+        test('${variant.name}.getSelector(${(feature as Enum).name})', () {
+          final sel = variant.getSelector(feature);
+          expect(sel.variant, equals(variant));
+          expect(sel.feature, equals(feature));
+          expect(sel.description, equals(variant.description));
+        });
+      }
     }
 
     test('sel.variant is typed as concrete enum — no cast needed', () {
-      final sel = _TestType.rover.getSelector(_TestFeature.alpha);
-      // sel.variant is _TestType, not AppType — access enum fields directly
-      final _TestType typed = sel.variant;
-      expect(typed, equals(_TestType.rover));
+      final sel = TestType.rover.getSelector(TestFeature.alpha);
+      // Compile-time check: sel.variant is TestType, not AppType
+      final TestType typed = sel.variant;
+      expect(typed, equals(TestType.rover));
     });
 
-    test('getSelector implements DartrixSelector', () {
-      final sel = _TestType.buster.getSelector(_TestFeature.beta);
+    test('getSelector result implements DartrixSelector', () {
+      final sel = TestType.buster.getSelector(TestFeature.beta);
       expect(sel, isA<DartrixSelector>());
+    });
+  });
+
+  // ── testSelector — matrix integration ────────────────────────────────────
+
+  group('testSelector — registers coverage on matrix', () {
+    final matrix = Dartrix(
+      axes: [TestType.values],
+      features: TestFeature.values,
+    );
+
+    for (final variant in TestType.values) {
+      for (final feature in variant.features) {
+        testSelector(matrix, variant.getSelector(feature), (sel) {
+          expect(sel.variant, equals(variant));
+          expect(sel.feature, equals(feature));
+        });
+      }
+    }
+
+    tearDownAll(() {
+      final gaps = matrix.gaps();
+      if (gaps.isNotEmpty) fail(MatrixRenderer(matrix).renderGaps());
     });
   });
 }
