@@ -41,9 +41,9 @@ void main() {
     });
   });
 
-  // ── testSelector — matrix integration ────────────────────────────────────
+  // ── testSelector — sync matrix integration ──────────────────────────────
 
-  group('testSelector — registers coverage on matrix', () {
+  group('testSelector — registers coverage on matrix (sync)', () {
     final matrix = Dartrix(
       axes: [TestType.values],
       features: TestFeature.values,
@@ -52,6 +52,31 @@ void main() {
     for (final variant in TestType.values) {
       for (final feature in variant.features) {
         testSelector(matrix, variant.getSelector(feature), (sel) {
+          expect(sel.variant, equals(variant));
+          expect(sel.feature, equals(feature));
+        });
+      }
+    }
+
+    tearDownAll(() {
+      final gaps = matrix.gaps();
+      if (gaps.isNotEmpty) fail(MatrixRenderer(matrix).renderGaps());
+    });
+  });
+
+  // ── testSelector — async matrix integration ──────────────────────────────
+
+  group('testSelector — registers coverage on matrix (async)', () {
+    final matrix = Dartrix(
+      axes: [TestType.values],
+      features: TestFeature.values,
+    );
+
+    for (final variant in TestType.values) {
+      for (final feature in variant.features) {
+        testSelector(matrix, variant.getSelector(feature), (sel) async {
+          // Simulate async work — coverage must register after this resolves
+          await Future<void>.value();
           expect(sel.variant, equals(variant));
           expect(sel.feature, equals(feature));
         });

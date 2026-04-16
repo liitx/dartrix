@@ -141,17 +141,21 @@ to prove the pattern. Once `TypedSelector<V>` was validated, all 8 were retired 
   enforces zero gaps after all loops complete
 - Loop discipline enforced: per-value `test()` registrations, not inline loops
 
+### Async testSelector() (fix/async-test-selector)
+- `testSelector()` body type changed from `void Function(S)` to
+  `FutureOr<void> Function(S)` — accepts both sync and async bodies
+- Inner `test()` callback is now `async`; body is `await`ed before `cover()` fires
+- Existing sync bodies unchanged; no consumer migration required
+- Verified with dedicated async test group in `selector_test.dart` (29 tests total)
+- Unblocks zedup's nocterm tests from migrating to `testSelector()`
+
 ---
 
 ## What's next
 
-### Immediate — zedup selector migration (async blocker)
-zedup's nocterm tests are `async`. `testSelector()` accepts `void Function(S)` — sync
-only. Until dartrix adds async support (`FutureOr<void> Function(S)`), zedup's dashboard
-and branch screen tests use explicit `matrix.cover()` inside async bodies as a workaround.
-
-Once async `testSelector()` lands, zedup can migrate all `matrix.cover()` loops to
-`testSelector()` calls and the branch screen tests gain matrix wiring.
+### Immediate — zedup selector migration
+zedup's async nocterm tests can now migrate from manual `matrix.cover()` to
+`testSelector()`. Branch screen tests also gain matrix wiring once zedup migrates.
 
 See zedup's PLAN.md for the full selector migration plan.
 

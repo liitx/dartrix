@@ -7,6 +7,12 @@ Each entry maps 1:1 to a GitHub issue and a package version bump.
 
 ## [Unreleased]
 
+### Added
+- `testSelector()` now accepts async bodies — `FutureOr<void> Function(S)`
+  replaces `void Function(S)`. Existing sync bodies are unaffected. Coverage
+  registers only after the body resolves — a failing async body never appears
+  covered. Unblocks zedup's nocterm tests from using `testSelector()`.
+
 ### Fixed
 - `Dartrix`, `MatrixRenderer`, and `testSelector()` now validated by dartrix's
   own test suite. Prior to this, the framework shipped its core APIs with only
@@ -14,7 +20,8 @@ Each entry maps 1:1 to a GitHub issue and a package version bump.
   actually registers coverage on a matrix or that `gaps()` closes correctly.
   Added `test/matrix/matrix_test.dart` and `test/stubs.dart`; wired
   `test/selector/selector_test.dart` to a live `Dartrix` instance with
-  `tearDownAll` gap enforcement. 26 tests.
+  `tearDownAll` gap enforcement. 29 tests (26 from matrix-test-coverage +
+  3 async selector tests).
 - `test/matrix/matrix_test.dart`: two renderer tests collapsed `TestType.values`
   and `TestFeature.values` into single test bodies. Split into one `test()` per
   value — failure now identifies the specific variant. (#14)
