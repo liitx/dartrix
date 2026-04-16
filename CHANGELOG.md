@@ -7,6 +7,25 @@ Each entry maps 1:1 to a GitHub issue and a package version bump.
 
 ## [Unreleased]
 
+### Added
+- `testSelector()` now accepts async bodies — `FutureOr<void> Function(S)`
+  replaces `void Function(S)`. Existing sync bodies are unaffected. Coverage
+  registers only after the body resolves — a failing async body never appears
+  covered. Unblocks zedup's nocterm tests from using `testSelector()`.
+
+### Fixed
+- `Dartrix`, `MatrixRenderer`, and `testSelector()` now validated by dartrix's
+  own test suite. Prior to this, the framework shipped its core APIs with only
+  minimal selector-construction tests — no test verified that `testSelector()`
+  actually registers coverage on a matrix or that `gaps()` closes correctly.
+  Added `test/matrix/matrix_test.dart` and `test/stubs.dart`; wired
+  `test/selector/selector_test.dart` to a live `Dartrix` instance with
+  `tearDownAll` gap enforcement. 29 tests (26 from matrix-test-coverage +
+  3 async selector tests).
+- `test/matrix/matrix_test.dart`: two renderer tests collapsed `TestType.values`
+  and `TestFeature.values` into single test bodies. Split into one `test()` per
+  value — failure now identifies the specific variant. (#14)
+
 ### Planned
 - `testSelectorGroup()` — group wrapper for selector loops (#8)
 - `coverAll(variants, feature)` — bulk coverage convenience (#7)
@@ -27,13 +46,19 @@ Each entry maps 1:1 to a GitHub issue and a package version bump.
 - `testSelector<S>()` — wraps `test()` and registers `matrix.cover()`
   automatically after the body runs. The generic `S` preserves the concrete
   selector type — no cast needed in the test body. (#5)
+- `TypedSelector<V>` — concrete `DartrixSelector` where `variant` is preserved
+  as its concrete `AppType` subtype `V`. Created via `AppType.getSelector()` —
+  never constructed directly. (#6)
+- `AppTypeGetSelector.getSelector(feature)` — extension on any `AppType` variant.
+  Returns `TypedSelector<V>` so the test body reads `sel.variant` as the concrete
+  enum type without casting. Replaces explicit `DartrixSelector` subclasses. (#6)
 - `test` moved from `dev_dependencies` to `dependencies` — consumers get
   `testSelector()` transitively. (#5)
 
 ### Context
-API proven in zedup (`BranchStatusSelector` × `ZedFeature.dashboard`) before
-landing here. Pattern: implement `DartrixSelector` in the consumer app,
-validate the signature works end-to-end, then promote to dartrix.
+APIs proven in zedup before landing here. `TypedSelector<V>` superseded 8 explicit
+`DartrixSelector` subclasses — no boilerplate selector class needed; `sel.variant`
+is already the concrete enum type. See zedup `retired/selectors_retired.md`.
 
 ---
 

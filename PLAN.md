@@ -112,6 +112,9 @@ graph LR
 - `DartrixSelector` interface — `variant`, `feature`, `description`
 - `testSelector<S>()` — wraps `test()`, registers `cover()` automatically, generic `S`
   preserves concrete selector type
+- `TypedSelector<V>` — concrete selector where `variant` is typed as `V`, not `AppType`
+- `AppTypeGetSelector.getSelector(feature)` — extension on every `AppType` variant;
+  returns `TypedSelector<V>`. Zero boilerplate — the enum IS the selector factory.
 
 **Why the generic S matters:**
 Without `S`, test bodies need to cast `sel as ConcreteSelector` to access app-specific
@@ -123,36 +126,38 @@ If `cover()` ran before the body, a test could register coverage and then fail i
 assertions — the matrix would show covered but the test would be broken. Running
 `cover()` after the body ensures coverage only registers when the test actually passes.
 
+**TypedSelector<V> proved then superseded explicit subclasses:**
+zedup built 8 concrete `DartrixSelector` subclasses (`BranchStatusSelector` etc.)
+to prove the pattern. Once `TypedSelector<V>` was validated, all 8 were retired —
+`sel.variant` is already typed, no subclass needed. See zedup `retired/selectors_retired.md`.
+
+### Framework self-validation (fix/matrix-test-coverage)
+- `test/stubs.dart` — shared `TestType`/`TestFeature` fixtures; exhaustive switch
+  means adding a variant without updating the switch is a compile error
+- `test/matrix/matrix_test.dart` — `Dartrix` and `MatrixRenderer` now have their
+  own test coverage; `stateOf()`, `gaps()`, accessors, and all render symbols tested
+- `test/selector/selector_test.dart` — wired to a live `Dartrix` instance;
+  `testSelector()` now verified to register coverage and close gaps; `tearDownAll`
+  enforces zero gaps after all loops complete
+- Loop discipline enforced: per-value `test()` registrations, not inline loops
+
+### Async testSelector() (fix/async-test-selector)
+- `testSelector()` body type changed from `void Function(S)` to
+  `FutureOr<void> Function(S)` — accepts both sync and async bodies
+- Inner `test()` callback is now `async`; body is `await`ed before `cover()` fires
+- Existing sync bodies unchanged; no consumer migration required
+- Verified with dedicated async test group in `selector_test.dart` (29 tests total)
+- Unblocks zedup's nocterm tests from migrating to `testSelector()`
+
 ---
 
 ## What's next
 
-### Immediate — remaining zedup selectors
-zedup needs selectors for every (variant × feature) loop that currently uses manual
-`matrix.cover()`. Once those are built and proven, that pattern feeds back into
-dartrix's documentation and potentially a `testSelectorGroup()` helper.
+### Immediate — zedup selector migration
+zedup's async nocterm tests can now migrate from manual `matrix.cover()` to
+`testSelector()`. Branch screen tests also gain matrix wiring once zedup migrates.
 
-See zedup's PLAN.md for the full selector backwork plan.
-
-### AppType.getSelector() — enum as selector factory
-
-The current pattern requires a separate selector class per (enum × feature) pair.
-The optimization: every `AppType` variant knows how to produce its own selector.
-
-```dart
-abstract interface class AppType {
-  Set<FeatureType> get features;
-  DartrixSelector getSelector(FeatureType feature); // ← each variant is its own factory
-}
-```
-
-`BranchType.feat.getSelector(ZedFeature.dashboard)` returns a fully configured
-selector — no separate class needed. The enum IS the selector factory.
-
-**Prove in zedup first:** The 7 manual selector classes being built now
-(`BranchTypeDashboardSelector`, `ZedProfileDashboardSelector`, etc.) are the proof.
-Once built, inspect what each carries → that defines `getSelector()`'s contract →
-promote to dartrix → zedup removes the 7 classes.
+See zedup's PLAN.md for the full selector migration plan.
 
 ### Near-term — framework conveniences
 - `coverAll(variants, feature)` — bulk coverage for tests that legitimately cover all

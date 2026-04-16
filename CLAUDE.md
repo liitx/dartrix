@@ -50,6 +50,30 @@ If CHANGELOG and README disagree on what exists: CHANGELOG wins (it's versioned)
 
 ---
 
+## Testing constraints
+
+**Loop wraps `test()` — never the reverse.** When iterating over enum values, the `for` loop must create one `test()` per value. A loop inside a single `test()` body collapses all failures into one indistinguishable case.
+
+```dart
+// Wrong — one test, failure doesn't say which variant broke
+test('render contains all variant names', () {
+  for (final v in TestType.values) { expect(output, contains(v.name)); }
+});
+
+// Right — one test per variant, failure is precise
+for (final v in TestType.values) {
+  test('render contains variant: ${v.name}', () {
+    expect(renderer.render(), contains(v.name));
+  });
+}
+```
+
+**`flutter_test` corollary.** In `flutter_test`, the equivalent pattern is `ValueVariant<T>` passed as the `variant:` parameter to `testWidgets()` / `test()`. The `loom_lints:check_test_variant` rule enforces this in `dc-flutter`. The discipline is identical — the mechanism differs by framework.
+
+**`testSelector()` is the dartrix idiom.** For matrix-registered tests, prefer `testSelector()` over a raw loop + `matrix.cover()`. The selector carries the variant, feature, and description; coverage registers automatically after the body.
+
+---
+
 ## Git rules
 
 - Author: `Aksana Buster <ab@liitx.com>` — verify `git config user.email` before committing
