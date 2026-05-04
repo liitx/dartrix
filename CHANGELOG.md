@@ -8,6 +8,14 @@ Each entry maps 1:1 to a GitHub issue and a package version bump.
 ## [Unreleased]
 
 ### Added
+- `ShoelaceLayout`, `ShoelaceNode`, `ShoelaceSegment`, and `shoelaceLayoutOf` —
+  pure-data shoelace coverage geometry. Variants placed on a unit circle as
+  nodes carrying `coverageRatio`; N-1 segments along the continuous lacing
+  path `0 → N-1 → 1 → N-2 → ...`. No rendering, no Flutter, no usage registry —
+  consumers (zedup nocterm at phase 2; HTML canvas elsewhere) build the
+  per-vertex region geometry from segments + node angle, then shade each
+  region by `coverageRatio`. Multi-axis matrices supported by calling once
+  per enum. Lenient on degenerate sizes (N ∈ {0, 1, 2}).
 - `testSelector()` now accepts async bodies — `FutureOr<void> Function(S)`
   replaces `void Function(S)`. Existing sync bodies are unaffected. Coverage
   registers only after the body resolves — a failing async body never appears
