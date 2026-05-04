@@ -177,6 +177,41 @@ The generic `S` parameter preserves the concrete selector type — the body rece
 
 ---
 
+## ShoelaceLayout — coverage as geometry
+
+`MatrixRenderer` prints the matrix as ASCII. `shoelaceLayoutOf` produces the same coverage state as **pure-data geometry** so consumers can render the matrix as a fractal coverage visual: each enum becomes a circle, variants are nodes around the circumference, and a continuous shoelace path laces them together.
+
+```dart
+final layout = shoelaceLayoutOf(matrix, Status.values);
+
+for (final node in layout.nodes) {
+  // node.variant       — Status.draft, Status.published, ...
+  // node.angle         — radians, evenly distributed on the unit circle
+  // node.coverageRatio — covered participating cells / total, in [0, 1]
+}
+
+for (final segment in layout.segments) {
+  // segment.fromIndex / segment.toIndex — indices into nodes
+  // segment.step                         — position in the lace, 0..N-2
+  // segment.isLit                        — true ↔ both endpoints fully covered
+}
+```
+
+The lace path crosses the circle in shoelace order: `0 → N-1 → 1 → N-2 → 2 → N-3 → ...`, producing `N-1` segments ending at the middle index. Each segment carries its `step` so renderers can color by position in the lace; `isLit` is a convenience flag derived from endpoint coverage.
+
+**Per-vertex regions.** The renderer constructs a region around each vertex from its incident segments — apex-triangle for middle vertices (two laces + arc behind), edge lune for path endpoints (one lace + arc). Click that region to drill into the variant's coverage detail. Region brightness encodes `coverageRatio` (dim = uncovered, lit = fully covered).
+
+**Multi-axis.** Call once per enum:
+
+```dart
+final statusLayout = shoelaceLayoutOf(matrix, Status.values);
+final roleLayout   = shoelaceLayoutOf(matrix, Role.values);
+```
+
+**Lenient on degenerate sizes.** `N=0` returns empty. `N=1` returns one node, zero segments. `N=2` returns one segment. The shoelace primitive is geometry only — no rendering, no Flutter, no usage registry. Renderers (nocterm in zedup, HTML canvas, Flutter widgets) consume the layout and decide how to draw it.
+
+---
+
 ## The type hierarchy
 
 dartrix ships four marker interfaces your app's enums implement:
