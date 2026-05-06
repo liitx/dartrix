@@ -33,6 +33,11 @@ migrate_working_dir/
 .pub/
 /build/
 
+# Dev-only symlink to zedup-written snapshot. Created via:
+#   ln -s ~/.zedup/shoelace-coverage.json web/coverage.json
+# zedup regenerates the source file; the symlink stays.
+/web/coverage.json
+
 # Symbolication related
 app.*.symbols
 
