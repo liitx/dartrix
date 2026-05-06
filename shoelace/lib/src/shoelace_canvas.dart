@@ -1,0 +1,139 @@
+// shoelace_canvas.dart — circular shoelace canvas with vertex labels.
+//
+// Layout strategy:
+//   - Maximum disc diameter capped (`AppLayout.maxDiscDiameter`) so wide
+//     viewports do not stretch the disc to fill the entire body.
+//   - Outer Padding (`AppLayout.labelPadding`) reserves overflow space
+//     for label widgets.
+//   - Stack(clipBehavior: Clip.none) lets labels render past the SizedBox
+//     edge into that reserved padding zone.
+
+import 'dart:math' as math;
+
+import 'package:flutter/material.dart';
+
+import 'coverage.dart';
+import 'lace_path.dart';
+import 'shoelace_painter.dart';
+import 'ui/tokens.dart';
+
+class ShoelaceCanvas extends StatelessWidget {
+  const ShoelaceCanvas({
+    required this.snapshot,
+    required this.focusedIndex,
+    super.key,
+  });
+
+  final CoverageSnapshot snapshot;
+  final int focusedIndex;
+
+  @override
+  Widget build(BuildContext context) {
+    return Padding(
+      padding: const EdgeInsets.all(AppLayout.labelPadding),
+      child: LayoutBuilder(
+        builder: (context, constraints) {
+          final available = math.min(
+            constraints.maxWidth,
+            constraints.maxHeight,
+          );
+          final canvasSide = math.min(available, AppLayout.maxDiscDiameter);
+          if (canvasSide <= 0) return const SizedBox.shrink();
+          return Center(
+            child: SizedBox(
+              width: canvasSide,
+              height: canvasSide,
+              child: Stack(
+                clipBehavior: Clip.none,
+                children: [
+                  Positioned.fill(
+                    child: CustomPaint(
+                      painter: ShoelacePainter(
+                        snapshot: snapshot,
+                        focusedIndex: focusedIndex,
+                      ),
+                    ),
+                  ),
+                  ..._buildLabels(canvasSide),
+                ],
+              ),
+            ),
+          );
+        },
+      ),
+    );
+  }
+
+  List<Widget> _buildLabels(double canvasSide) {
+    final vertexCount = snapshot.variants.length;
+    if (vertexCount == 0) return const [];
+    final centerX = canvasSide / 2;
+    final centerY = canvasSide / 2;
+    final discRadius = canvasSide / 2 * AppLayout.discRadiusRatio;
+    final labelRadius = discRadius + AppLayout.labelGap;
+
+    return [
+      for (var vertexIndex = 0; vertexIndex < vertexCount; vertexIndex++)
+        _VariantLabel(
+          variant: snapshot.variants[vertexIndex],
+          isFocused: vertexIndex == focusedIndex,
+          containerSide: canvasSide,
+          centerX: centerX,
+          centerY: centerY,
+          labelRadius: labelRadius,
+          angle: vertexAngle(vertexIndex, vertexCount),
+        ),
+    ];
+  }
+}
+
+class _VariantLabel extends StatelessWidget {
+  const _VariantLabel({
+    required this.variant,
+    required this.isFocused,
+    required this.containerSide,
+    required this.centerX,
+    required this.centerY,
+    required this.labelRadius,
+    required this.angle,
+  });
+
+  final VariantInfo variant;
+  final bool isFocused;
+  final double containerSide;
+  final double centerX;
+  final double centerY;
+  final double labelRadius;
+  final double angle;
+
+  @override
+  Widget build(BuildContext context) {
+    final position = vertexPosition(
+      angle: angle,
+      centerX: centerX,
+      centerY: centerY,
+      radius: labelRadius,
+    );
+    final isLeftHalf = math.cos(angle) < 0;
+    final color = isFocused ? AppColor.emphasis.color : variant.color;
+
+    return Positioned(
+      left: isLeftHalf ? null : position.x,
+      right: isLeftHalf ? containerSide - position.x : null,
+      top: position.y - 8,
+      child: ConstrainedBox(
+        constraints: const BoxConstraints(maxWidth: AppLayout.maxLabelWidth),
+        child: Text(
+          variant.name,
+          softWrap: false,
+          overflow: TextOverflow.fade,
+          textAlign: isLeftHalf ? TextAlign.right : TextAlign.left,
+          style: AppText.body.styleWith(color).copyWith(
+                fontWeight:
+                    isFocused ? FontWeight.bold : FontWeight.w500,
+              ),
+        ),
+      ),
+    );
+  }
+}

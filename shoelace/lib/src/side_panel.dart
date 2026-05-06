@@ -1,4 +1,7 @@
-// side_panel.dart — VARIANTS + LACE SEGMENTS lists alongside the canvas.
+// side_panel.dart — variants list and lace segment list.
+//
+// Width is controlled by the parent (SizedBox in wide layouts, Drawer in
+// compact). The panel itself does not impose a width.
 
 import 'package:flutter/material.dart';
 
@@ -8,32 +11,32 @@ import 'ui/tokens.dart';
 
 class SidePanel extends StatelessWidget {
   const SidePanel({
-    required this.data,
+    required this.snapshot,
     required this.focusedIndex,
     required this.onVariantTap,
     super.key,
   });
 
-  final CoverageData data;
+  final CoverageSnapshot snapshot;
   final int focusedIndex;
   final ValueChanged<int> onVariantTap;
 
   @override
   Widget build(BuildContext context) {
-    return Container(
-      width: 280,
-      padding: EdgeInsets.symmetric(vertical: AppSpacing.lg.px),
+    return DecoratedBox(
       decoration: BoxDecoration(
+        color: AppColor.background.color,
         border: Border(left: BorderSide(color: AppColor.border.color)),
       ),
       child: SingleChildScrollView(
+        padding: EdgeInsets.symmetric(vertical: AppSpacing.lg.px),
         child: Column(
           crossAxisAlignment: CrossAxisAlignment.stretch,
           children: [
             const _SectionHeader(label: UiLabel.sectionVariants),
-            for (var i = 0; i < data.variants.length; i++)
+            for (var i = 0; i < snapshot.variants.length; i++)
               _VariantRow(
-                variant: data.variants[i],
+                variant: snapshot.variants[i],
                 isFocused: i == focusedIndex,
                 onTap: () => onVariantTap(i),
               ),
@@ -47,13 +50,13 @@ class SidePanel extends StatelessWidget {
   }
 
   List<Widget> _segmentRows() {
-    final n = data.variants.length;
+    final n = snapshot.variants.length;
     if (n < 2) return const [];
     return [
       for (final seg in laceSegments(n))
         _SegmentRow(
-          from: data.variants[seg.fromIndex],
-          to: data.variants[seg.toIndex],
+          from: snapshot.variants[seg.fromIndex],
+          to: snapshot.variants[seg.toIndex],
         ),
     ];
   }
@@ -111,19 +114,17 @@ class _VariantRow extends StatelessWidget {
                 variant.name,
                 style: AppText.body
                     .styleWith(
-                      isFocused ? Colors.white : AppColor.textPrimary.color,
+                      isFocused ? AppColor.emphasis.color : AppColor.textPrimary.color,
                     )
                     .copyWith(
-                      fontWeight: isFocused
-                          ? FontWeight.bold
-                          : FontWeight.normal,
+                      fontWeight:
+                          isFocused ? FontWeight.bold : FontWeight.normal,
                     ),
               ),
             ),
             Text(
               '$pct%',
-              style: AppText.bodyMuted
-                  .styleWith(AppColor.textMuted.color),
+              style: AppText.bodyMuted.styleWith(AppColor.textMuted.color),
             ),
           ],
         ),
@@ -138,15 +139,15 @@ class _SegmentRow extends StatelessWidget {
   final VariantInfo from;
   final VariantInfo to;
 
-  /// Pattern-driven derivation of the badge label + color from segment status.
-  /// `notApplicable` shouldn't reach this row (segments only join required
-  /// variants), but the exhaustive switch makes the contract explicit.
+  /// Pattern-driven derivation of the badge label and color from segment
+  /// status. The chord is owned by the TO node, so the badge tracks TO's
+  /// coverage. `notApplicable` should not reach this row but the
+  /// exhaustive switch makes the contract explicit.
   ({UiLabel label, Color color}) get _badge {
-    final status =
-        SegmentStatus.fromRatios(from.coverageRatio, to.coverageRatio);
+    final status = SegmentStatus.forCoverage(to.coverageRatio);
     return switch (status) {
-      SegmentStatus.tested => (
-          label: UiLabel.badgeTested,
+      SegmentStatus.covered => (
+          label: UiLabel.badgeCovered,
           color: AppColor.statusComplete.color,
         ),
       SegmentStatus.gap => (
@@ -186,8 +187,7 @@ class _SegmentRow extends StatelessWidget {
           Expanded(
             child: Text(
               to.name,
-              style: AppText.bodyMuted
-                  .styleWith(AppColor.textPrimary.color),
+              style: AppText.bodyMuted.styleWith(AppColor.textPrimary.color),
             ),
           ),
           Text(
@@ -219,7 +219,9 @@ class _Dot extends StatelessWidget {
       decoration: BoxDecoration(
         color: color,
         shape: BoxShape.circle,
-        border: focused ? Border.all(color: Colors.white, width: 1.5) : null,
+        border: focused
+            ? Border.all(color: AppColor.emphasis.color, width: 1.5)
+            : null,
       ),
     );
   }
