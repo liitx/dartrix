@@ -74,6 +74,16 @@ for (final v in TestType.values) {
 
 ---
 
+## Code discipline
+
+**Think before coding.** State your plan before writing anything. If multiple interpretations exist, list them — don't pick silently. If a change touches the public API surface, surface the tradeoff before acting. Push back when a simpler approach exists.
+
+**Surgical changes.** Touch only what the task requires. Don't refactor adjacent code, improve formatting, or rename for style. Match the existing API style exactly, even if you'd do it differently. Every changed line must trace directly to the request. If your changes orphan an import or parameter, remove it — leave pre-existing dead code alone unless asked.
+
+**Verifiable goals.** For multi-step tasks, state a brief plan with a check per step. Verification here means: `dart test` passes, all matrix switches remain exhaustive, no new API lands without a proven zedup implementation.
+
+---
+
 ## Git rules
 
 - Author: `Aksana Buster <ab@liitx.com>` — verify `git config user.email` before committing
