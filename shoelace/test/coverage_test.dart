@@ -7,57 +7,50 @@ import 'package:dartrix_shoelace/src/coverage.dart';
 import 'package:flutter_test/flutter_test.dart';
 
 void main() {
-  group('CoverageData.fromJson — schema parsing', () {
+  group('CoverageSnapshot.fromJson — schema parsing', () {
     test('parses the v1 schema', () {
-      final data = CoverageData.fromJson(_minimalV1());
-      expect(data.schema, equals(CoverageSchema.v1));
+      final snapshot = CoverageSnapshot.fromJson(_minimalV1());
+      expect(snapshot.schema, equals(CoverageSchema.v1));
     });
 
     test('rejects an unknown schema', () {
       final json = _minimalV1()..['schema'] = 'unknown';
-      expect(() => CoverageData.fromJson(json), throwsFormatException);
+      expect(() => CoverageSnapshot.fromJson(json), throwsFormatException);
     });
 
     test('decodes hex colors', () {
-      final data = CoverageData.fromJson(_minimalV1());
-      expect(data.variants.single.color.r, closeTo(0xff / 255, 1e-3));
-      expect(data.variants.single.color.g, closeTo(0x00 / 255, 1e-3));
-      expect(data.variants.single.color.b, closeTo(0x00 / 255, 1e-3));
+      final snapshot = CoverageSnapshot.fromJson(_minimalV1());
+      expect(snapshot.variants.single.color.r, closeTo(0xff / 255, 1e-3));
+      expect(snapshot.variants.single.color.g, closeTo(0x00 / 255, 1e-3));
+      expect(snapshot.variants.single.color.b, closeTo(0x00 / 255, 1e-3));
     });
 
     test('rejects malformed hex colors', () {
       final json = _minimalV1();
       (json['variants'] as List).first['color'] = '#xyz';
-      expect(() => CoverageData.fromJson(json), throwsFormatException);
+      expect(() => CoverageSnapshot.fromJson(json), throwsFormatException);
     });
   });
 
-  group('SegmentStatus.fromRatios', () {
-    test('both fully covered → tested', () {
+  group('SegmentStatus.forCoverage', () {
+    test('1.0 → covered', () {
       expect(
-        SegmentStatus.fromRatios(1.0, 1.0),
-        equals(SegmentStatus.tested),
+        SegmentStatus.forCoverage(1.0),
+        equals(SegmentStatus.covered),
       );
     });
 
-    test('one ratio less than 1.0 → gap', () {
+    test('partial coverage → gap', () {
       expect(
-        SegmentStatus.fromRatios(0.5, 1.0),
+        SegmentStatus.forCoverage(0.5),
         equals(SegmentStatus.gap),
       );
     });
 
-    test('zero ratios → gap', () {
+    test('zero coverage → gap', () {
       expect(
-        SegmentStatus.fromRatios(0.0, 0.0),
+        SegmentStatus.forCoverage(0.0),
         equals(SegmentStatus.gap),
-      );
-    });
-
-    test('FROM 100% with TO 0% → tested (chord owned by FROM)', () {
-      expect(
-        SegmentStatus.fromRatios(1.0, 0.0),
-        equals(SegmentStatus.tested),
       );
     });
   });
@@ -71,10 +64,10 @@ void main() {
         return; // skip — no zedup-written file in this env
       }
       final json = jsonDecode(file.readAsStringSync()) as Map<String, dynamic>;
-      final data = CoverageData.fromJson(json);
-      expect(data.schema, equals(CoverageSchema.v1));
-      expect(data.variants, isNotEmpty);
-      expect(data.coverageRatio, isA<double>());
+      final snapshot = CoverageSnapshot.fromJson(json);
+      expect(snapshot.schema, equals(CoverageSchema.v1));
+      expect(snapshot.variants, isNotEmpty);
+      expect(snapshot.averageCoverage, isA<double>());
     });
   });
 }

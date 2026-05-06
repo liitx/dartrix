@@ -3,8 +3,7 @@
 // Conventions:
 //   - `final class` on every model — closed for extension, signals
 //     immutability and value semantics.
-//   - Switch expressions with relational patterns + when guards — no
-//     scattered `if/else` for what is fundamentally enum-derivation.
+//   - Switch expressions with relational patterns and when guards.
 //   - `fromJson` destructures via `as` only at the boundary; downstream
 //     code never touches `Map<String, dynamic>`.
 
@@ -24,24 +23,23 @@ enum CoverageSchema {
       };
 }
 
-/// Per-segment / per-(variant, feature) coverage status. Drawn from the
-/// matrix data — never written into the JSON directly.
+/// Coverage status of one (variant, feature) cell. Naming aligns with
+/// dartrix's `CellState`.
 enum SegmentStatus {
-  /// At least one test covers the pair.
-  tested,
+  /// Required cell with at least one test.
+  covered,
 
-  /// Required pair, no test — the visible gap.
+  /// Required cell with no test — the visible gap.
   gap,
 
-  /// Variant doesn't participate in this feature — not required.
+  /// Variant does not participate in this feature — not required.
   notApplicable;
 
-  /// Reduces a pair of coverage ratios to a `SegmentStatus`. The lace is
-  /// "owned" by the FROM node — when FROM is fully covered, the chord lights
-  /// up in FROM's color regardless of the destination.
-  static SegmentStatus fromRatios(double from, double to) =>
-      switch (from) {
-        >= 1.0 => SegmentStatus.tested,
+  /// Reduces a coverage ratio to a `SegmentStatus`. Used by the chord
+  /// label badge — the chord is owned by the TO node, so the badge
+  /// tracks TO's coverage.
+  static SegmentStatus forCoverage(double ratio) => switch (ratio) {
+        >= 1.0 => SegmentStatus.covered,
         _ => SegmentStatus.gap,
       };
 }
@@ -142,10 +140,10 @@ final class UsageInfo {
       );
 }
 
-/// Top-level decoded snapshot.
+/// Top-level decoded coverage snapshot.
 @immutable
-final class CoverageData {
-  const CoverageData({
+final class CoverageSnapshot {
+  const CoverageSnapshot({
     required this.schema,
     required this.generatedAt,
     required this.variants,
@@ -163,8 +161,8 @@ final class CoverageData {
   final List<TestInfo> tests;
   final List<UsageInfo> usages;
 
-  /// Average coverageRatio across variants. Vacuously 0.0 for empty input.
-  double get coverageRatio => switch (variants.length) {
+  /// Average per-variant coverage ratio across the snapshot. 0.0 on empty.
+  double get averageCoverage => switch (variants.length) {
         0 => 0,
         final n => variants.fold(0.0, (a, v) => a + v.coverageRatio) / n,
       };
@@ -177,27 +175,29 @@ final class CoverageData {
   /// Number of (variant, feature) pairs that are required but not covered.
   int get gapCount => gaps.length;
 
-  /// Status for a `(variantQualifiedName, feature)` pair.
-  SegmentStatus statusOf({required String variant, required String feature}) {
-    final v = variants.firstWhere(
-      (v) => v.qualifiedName == variant,
-      orElse: () => throw ArgumentError('Unknown variant: $variant'),
-    );
-    return switch (v.features.contains(feature)) {
+  /// Status of one (variant, feature) cell. Variant comes from [variants];
+  /// feature is one of [features].
+  SegmentStatus cellStatus({
+    required VariantInfo variant,
+    required String feature,
+  }) {
+    return switch (variant.features.contains(feature)) {
       false => SegmentStatus.notApplicable,
       true when gaps.any(
-        (g) => g.variant == variant && g.feature == feature,
+        (g) => g.variant == variant.qualifiedName && g.feature == feature,
       ) =>
         SegmentStatus.gap,
-      true => SegmentStatus.tested,
+      true => SegmentStatus.covered,
     };
   }
 
-  factory CoverageData.fromJson(Map<String, dynamic> json) => CoverageData(
+  factory CoverageSnapshot.fromJson(Map<String, dynamic> json) =>
+      CoverageSnapshot(
         schema: CoverageSchema.parse(json['schema'] as String),
         generatedAt: DateTime.parse(json['generatedAt'] as String),
         variants: List<VariantInfo>.unmodifiable([
-          for (final v in (json['variants'] as List).cast<Map<String, dynamic>>())
+          for (final v
+              in (json['variants'] as List).cast<Map<String, dynamic>>())
             VariantInfo.fromJson(v),
         ]),
         features: List<String>.unmodifiable(
@@ -219,7 +219,6 @@ final class CoverageData {
 }
 
 /// Parses `#rrggbb` or `#rrggbbaa` (with or without leading `#`).
-/// Switch expression on length keeps the format contract explicit.
 Color _parseHexColor(String hex) {
   final cleaned = hex.replaceFirst('#', '');
   return switch (cleaned.length) {
