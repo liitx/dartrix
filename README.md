@@ -2,7 +2,11 @@
 
 **Enum-driven test matrix framework for Dart.**
 
-dartrix turns your domain enums into a living coverage contract. Every enum variant declares which features it participates in via an exhaustive switch — adding a new variant without updating that switch is a **compile error**, not a missing test discovered at 2am.
+dartrix turns your domain enums into a living coverage contract. Every variant declares which features it participates in via an exhaustive switch — adding a new variant without updating that switch is a **compile error**, not a missing test discovered at 2am.
+
+The framework ships with **shoelace** — a Flutter web visualizer that renders coverage as a fractal disc. Click any region to drill into per-variant detail: usages, tests, gaps with file:line + class.method + group breadcrumb context.
+
+> **Deep dive:** [PLAN.md](PLAN.md) is the master roadmap. It carries the mathematics, the fractal hierarchy, the schema contract, the 6-phase roadmap, the proof-by-example template, and the project-templating pattern. This README is a curated entry point.
 
 ---
 
@@ -18,11 +22,16 @@ And a `dashboard` feature that renders each status differently. You write tests 
 
 dartrix makes that silent gap impossible.
 
+> Read more: [Coverage is emphatic](PLAN.md#coverage-is-emphatic) — what makes structural cell coverage different from line coverage.
+
 ---
 
-## How it works — the matrix
+## How it works — the matrix in 60 seconds
 
-**1. Define your app's features as an enum:**
+<details>
+<summary><strong>Click to expand — minimal end-to-end example</strong></summary>
+
+**1. Define your features.**
 
 ```dart
 enum AppFeature implements FeatureType {
@@ -31,12 +40,11 @@ enum AppFeature implements FeatureType {
   export('PDF / CSV export');
 
   const AppFeature(this.description);
-
   @override final String description;
 }
 ```
 
-**2. Make your domain enums declare participation:**
+**2. Make your domain enums declare participation.**
 
 ```dart
 enum Status implements AppType {
@@ -48,59 +56,93 @@ enum Status implements AppType {
     Status.draft     => {AppFeature.dashboard, AppFeature.editor},
     Status.published => {AppFeature.dashboard, AppFeature.export},
     Status.archived  => {AppFeature.dashboard},
-    Status.deleted   => {},  // not visible in any feature
+    Status.deleted   => {},
   };
 }
 ```
 
-Add `Status.suspended` later and forget to update `features`? **Compile error.** The exhaustive switch enforces the contract at build time.
+Add `Status.suspended` later and forget the switch? **Compile error.** The exhaustive switch is the contract.
 
-**3. Register coverage in your tests:**
+**3. Wire the matrix in your test main.**
 
 ```dart
-void main() {
-  final matrix = Dartrix(
-    axes: [Status.values],
-    features: AppFeature.values,
-  );
+final matrix = Dartrix(axes: [Status.values], features: AppFeature.values);
 
-  for (final status in Status.values) {
-    test('dashboard renders $status', () {
-      // ... your render assertion ...
-      matrix.cover(status, AppFeature.dashboard);
+for (final status in Status.values) {
+  if (status.features.contains(AppFeature.dashboard)) {
+    testSelector(matrix, status.getSelector(AppFeature.dashboard), (sel) {
+      // ... assert dashboard renders status correctly ...
     });
   }
-
-  tearDownAll(() {
-    final gaps = matrix.gaps();
-    if (gaps.isNotEmpty) {
-      fail(MatrixRenderer(matrix).renderGaps());
-    }
-  });
 }
+
+tearDownAll(() {
+  if (matrix.gaps().isNotEmpty) fail(MatrixRenderer(matrix).renderGaps());
+});
 ```
 
-**4. See exactly what's missing:**
+**4. Read the gap output.**
 
 ```
-GAPS (2):
-  Status.published  ×  editor
-  Status.archived   ×  export
+GAPS (3):
+  Status.published × editor
+  Status.archived  × export
+  Status.archived  × editor
 ```
 
-Or print the full matrix:
+Specific cells. Not "76% line coverage." Each row is a `(variant, feature)` pair you can fix.
+
+</details>
+
+> **Full walkthrough:** [Proof by example](PLAN.md#proof-by-example) in PLAN.md walks a TODO app through compile-time enforcement → gap surfaced → drilldown → test added → coverage closes.
+
+---
+
+## The shoelace visualizer
+
+The Flutter web app under [`shoelace/`](shoelace/) consumes the JSON snapshot any consumer (zedup, dc-flutter, your app) emits. It renders the matrix as a disc — each variant a region, region color the variant's color, region opacity proportional to coverage.
 
 ```
-Feature:      dashboard  editor  export
-draft             ✓         ✓      ·
-published         ✓         ✗      ✓
-archived          ✓         ·      ✗
-deleted           ·         ·      ·
+Disc → click a region → detail panel
+       ↓
+       Usages   (file:line + class.method)
+       Tests    (file:line + group breadcrumb)
+       Gaps     (feature + GAP badge + cross-referenced usages)
 ```
 
-- `✓` covered
-- `✗` gap — test required but missing
-- `·` not applicable — variant doesn't participate in this feature
+Each click drills one level deeper. The hierarchy descends broad → narrow:
+
+| Level | What you see                              | Click target              |
+|-------|-------------------------------------------|---------------------------|
+| 0     | One node per AppType enum (planned, P3+)  | Click → enter that enum   |
+| 1     | One node per variant of focused enum      | Click → focus that variant|
+| 2     | Detail panel — usages, tests, gaps        | Click usage → sub-circle  |
+| 3     | Sub-circle: per-call-site (planned)       | Click site → leaf         |
+| 4     | Leaf: file:line preview (planned)         | Open in editor            |
+
+> **Deep dive:** [The fractal hierarchy](PLAN.md#the-fractal-hierarchy) maps each level to its marker interface and explains the recursive geometry.
+
+---
+
+## Public API
+
+| Type                      | Role                                                                       |
+|---------------------------|----------------------------------------------------------------------------|
+| `Dartrix`                 | The matrix. `axes`, `features`, `cover()`, `gaps()`, `stateOf()`           |
+| `MatrixCell`              | `({AppType variant, FeatureType feature})` typedef                         |
+| `CellState`               | `covered` / `gap` / `notApplicable`                                        |
+| `MatrixRenderer`          | `render()` table + `renderGaps()` failure output                           |
+| `AppType`                 | Marker interface for domain enums; declares `features` getter              |
+| `FeatureType`             | Marker interface for feature axis enums                                    |
+| `ClassType`, `HelperType`, `ComponentType` | Markers for Level 3 sub-circle node types (planned)        |
+| `DartrixMethod`           | Marker for Level 4 method classification (planned)                         |
+| `DartrixSelector`         | Abstract: `variant`, `feature`, `description`                              |
+| `TypedSelector<V>`        | Concrete selector preserving variant subtype                               |
+| `testSelector<S>()`       | Wraps `test()`, registers `cover()` automatically after body passes        |
+| `ShoelaceLayout`          | Pure-data shoelace coverage geometry                                       |
+| `shoelaceLayoutOf(matrix, variants)` | Builds the layout data                                          |
+
+> **Deep dive:** [What's been built](PLAN.md#whats-been-built) in PLAN.md tracks each version's additions; [CHANGELOG.md](CHANGELOG.md) is the version-stamped log.
 
 ---
 
@@ -108,17 +150,8 @@ deleted           ·         ·      ·
 
 `matrix.cover()` works, but it's manual — scattered in test bodies, easy to forget, easy to call after a failing `expect` (which means it never runs). `DartrixSelector` solves this structurally.
 
-A selector bundles the three things every matrix test needs:
-
-```dart
-abstract interface class DartrixSelector {
-  AppType get variant;      // the enum value under test
-  FeatureType get feature;  // the feature context
-  String get description;   // test name — derive from a fixture, not a bare string
-}
-```
-
-**Zero-boilerplate path — `AppType.getSelector()`:**
+<details>
+<summary><strong>Zero-boilerplate path — `AppType.getSelector()`</strong></summary>
 
 Every `AppType` variant already knows how to produce its own selector via the built-in extension:
 
@@ -131,11 +164,14 @@ for (final status in Status.values.where((s) => s.isActive)) {
 }
 ```
 
-`status.getSelector(AppFeature.dashboard)` returns a `TypedSelector<Status>` — `sel.variant` is already `Status`, not the base `AppType`. No subclass, no boilerplate. Read all fixture data from `sel.variant` via your fixture extensions.
+`status.getSelector(AppFeature.dashboard)` returns a `TypedSelector<Status>` — `sel.variant` is already `Status`, not the base `AppType`. No subclass, no boilerplate. Read fixture data from `sel.variant` via your fixture extensions.
 
-**Concrete subclass path — when you need typed input getters:**
+</details>
 
-If the test body needs pre-computed fixture data beyond what `sel.variant` exposes directly (e.g., a constructed widget, a scripted prompt sequence), define a concrete selector:
+<details>
+<summary><strong>Concrete subclass path — when you need typed input getters</strong></summary>
+
+If the test body needs pre-computed fixture data beyond what `sel.variant` exposes directly:
 
 ```dart
 class StatusDashboardSelector implements DartrixSelector {
@@ -146,34 +182,32 @@ class StatusDashboardSelector implements DartrixSelector {
   @override FeatureType get feature  => AppFeature.dashboard;
   @override String get description   => status.label;
 
-  // Fixture-derived inputs — no bare strings
   Widget get widget => DashboardRow(status: status, label: status.label);
 }
 ```
 
-**`testSelector<S>()`** registers coverage automatically after the body completes:
+`testSelector<S>()` registers coverage automatically after the body completes:
 
 ```dart
-for (final status in Status.values.where((s) => s.isActive)) {
-  testSelector(matrix, StatusDashboardSelector(status), (sel) {
-    expect(sel.widget.label, equals(sel.status.label));
-    // matrix.cover() fires automatically — broken tests never appear covered
-  });
-}
+testSelector(matrix, StatusDashboardSelector(status), (sel) {
+  expect(sel.widget.label, equals(sel.status.label));
+  // matrix.cover() fires automatically — broken tests never appear covered
+});
 ```
 
 The generic `S` parameter preserves the concrete selector type — the body receives `StatusDashboardSelector` directly, no cast needed.
 
-### Why selectors over manual cover()
+</details>
 
-| | `matrix.cover()` | `testSelector()` |
-|---|---|---|
-| Coverage registration | Manual, in body | Automatic, structural |
-| Risk of missing cover | Yes — easy to forget | No |
-| Risk of cover after failed expect | Yes — throws before reaching it | No |
-| Test name | Hardcoded string | `selector.description` |
-| Input construction | Inline in test | Typed getter on selector |
-| Concrete type in body | Cast required | Preserved via `S` |
+### Why selectors over manual `cover()`
+
+| | `matrix.cover()`                    | `testSelector()`                    |
+|---|----------------------------------|--------------------------------------|
+| Coverage registration | Manual, in body         | Automatic, structural                |
+| Risk of missing cover | Yes — easy to forget    | No                                   |
+| Risk of cover after failed expect | Yes        | No                                   |
+| Test name | Hardcoded string                  | `selector.description`               |
+| Concrete type in body | Cast required           | Preserved via `S`                    |
 
 ---
 
@@ -197,34 +231,48 @@ for (final segment in layout.segments) {
 }
 ```
 
-The lace path crosses the circle in shoelace order: `0 → N-1 → 1 → N-2 → 2 → N-3 → ...`, producing `N-1` segments ending at the middle index. Each segment carries its `step` so renderers can color by position in the lace; `isLit` is a convenience flag derived from endpoint coverage.
+The shoelace layout is geometry only — no rendering, no Flutter, no usage registry. Renderers (the Flutter web app under `shoelace/`, HTML canvas, future TUI) consume the layout and decide how to draw it.
 
-**Per-vertex regions.** The renderer constructs a region around each vertex from its incident segments — apex-triangle for middle vertices (two laces + arc behind), edge lune for path endpoints (one lace + arc). Click that region to drill into the variant's coverage detail. Region brightness encodes `coverageRatio` (dim = uncovered, lit = fully covered).
-
-**Multi-axis.** Call once per enum:
-
-```dart
-final statusLayout = shoelaceLayoutOf(matrix, Status.values);
-final roleLayout   = shoelaceLayoutOf(matrix, Role.values);
-```
-
-**Lenient on degenerate sizes.** `N=0` returns empty. `N=1` returns one node, zero segments. `N=2` returns one segment. The shoelace primitive is geometry only — no rendering, no Flutter, no usage registry. Renderers (nocterm in zedup, HTML canvas, Flutter widgets) consume the layout and decide how to draw it.
+> **Deep dive:** [The mathematics](PLAN.md#the-mathematics) explains the lace path formula, the cell function, the coverage ratio, and the disc geometry constants.
 
 ---
 
-## The type hierarchy
+## The marker interfaces
 
-dartrix ships four marker interfaces your app's enums implement:
+dartrix ships marker interfaces consumers implement on their domain enums. Each marker maps to a level in the fractal hierarchy.
 
-| Interface       | For                                           |
-|-----------------|-----------------------------------------------|
-| `AppType`       | Domain enum variants (Status, Role, Category) |
-| `FeatureType`   | User-facing capabilities (dashboard, editor)  |
-| `ComponentType` | Renderable UI units (header, row, modal)       |
-| `HelperType`    | Injectable dependencies (fetcher, formatter)  |
-| `ClassType`     | Domain models (Document, UserProfile)         |
+| Interface       | For                                            | Level    | Status   |
+|-----------------|------------------------------------------------|----------|----------|
+| `AppType`       | Domain enum variants (`Status`, `Role`, etc.)  | L0/L1    | shipped  |
+| `FeatureType`   | User-facing capabilities (`dashboard`, `editor`) | axis   | shipped  |
+| `ComponentType` | Renderable UI units (`header`, `row`, `modal`) | L3       | planned  |
+| `HelperType`    | Injectable dependencies (`fetcher`, `formatter`) | L3     | planned  |
+| `ClassType`     | Domain models (`Document`, `UserProfile`)      | L3       | planned  |
+| `DartrixMethod` | Method classifications (factory / fetch / ...) | L4       | planned  |
 
-`AppType` is the workhorse — domain enums implement this and declare `features`. The rest are marker interfaces your app registers with the matrix for documentation and tooling.
+> **Deep dive:** [The fractal hierarchy](PLAN.md#the-fractal-hierarchy) maps each marker to its role and explains how consumers slot in.
+
+---
+
+## Adopting dartrix in your project
+
+The pattern any project follows. Each step is exhaustive-switch enforced.
+
+1. Declare your domain enums as `AppType`.
+2. Declare your feature axis as `FeatureType`.
+3. Declare `AppType.features` (the participation switch).
+4. Wire the matrix in your test main.
+5. Use `testSelector()` per variant per feature.
+6. Add a `tearDownAll` gap check.
+
+Optional (Phase 3+):
+
+7. Declare your domain models as `ClassType`.
+8. Declare your dependencies as `HelperType`.
+9. Declare your renderable units as `ComponentType`.
+10. Slot methods to `DartrixMethod`.
+
+> **Deep dive:** [Templating](PLAN.md#templating--the-pattern-any-project-follows) in PLAN.md is the full template with examples and rationale per step.
 
 ---
 
@@ -247,16 +295,20 @@ Each variant declares its own participation independently. The matrix unions the
 
 ---
 
-## Planned
+## Roadmap
 
-- `testSelectorGroup()` — group wrapper for selector loops
-- `coverAll(variants, feature)` — convenience for covering multiple variants at once
-- `DartrixCubit` — Cubit state adapter template (coverage via state emissions)
-- `DartrixBloc` — Bloc adapter template
-- `DartrixRiverpod` — Riverpod provider adapter template
-- `DartrixIsolate` — concurrent/async coverage adapter
+dartrix is mid-roadmap toward 1.0. The current ship is schema v2 (drilldown context). Upcoming phases:
 
-See [open issues](https://github.com/liitx/dartrix/issues) for status and context.
+| Phase | Scope                                                 | Status      |
+|-------|-------------------------------------------------------|-------------|
+| 1     | Gap cross-reference (dartrix shoelace)                | scoped      |
+| 2     | Test status integration (cross-repo, schema v3)       | planned     |
+| 3     | `[t]` TUI screen + template system (zedup-side)       | planned     |
+| 4     | Test runner cache + diff-aware re-runs (zedup-side)   | planned     |
+| 5     | GUI design subagent (claudart-side)                   | planned     |
+| 6     | Cleanup audit (post-merge, all repos)                 | planned     |
+
+> **Deep dive:** [The 6-phase roadmap](PLAN.md#the-6-phase-roadmap) in PLAN.md has scope, deliverables, dependencies, and exit criteria per phase.
 
 ---
 
@@ -281,6 +333,15 @@ Requires Dart SDK `>=3.5.0`.
 - **Compile-time over runtime.** Exhaustive switches catch gaps before tests run.
 - **Participation, not just presence.** A variant that genuinely doesn't participate in a feature marks itself `{}` — not a gap, not skipped, declared.
 - **Selectors over manual registration.** The selector is the test — it carries the variant, the feature context, and the fixture-derived inputs. Coverage is a consequence, not a chore.
-- **Proven before promoted.** Every dartrix API is validated in a real consumer app before landing in the framework.
+- **Proven before promoted.** Every dartrix API is validated in a real consumer app (zedup) before landing in the framework.
 - **No magic.** No code generation, no reflection, no annotations. Just interfaces, switches, and a map.
-- **Scales with your enum count.** 3 variants or 30 — the matrix grows with your domain without changing your test structure.
+- **Schema as boundary contract.** The JSON snapshot between data producers and the visualizer is versioned and additive. Consumers and producers ship independently.
+- **Project-agnostic visualization.** shoelace renders whatever JSON arrives. Variant types and feature names come from the snapshot, not from imports.
+
+---
+
+## Related
+
+- **[zedup](https://github.com/liitx/zedup)** — Zed IDE profile manager, work item tracker, and the first dartrix consumer + data producer.
+- **[claudart](https://github.com/liitx/claudart)** — AI session orchestration and workspace management for Claude Code.
+- **[shoelace/](shoelace/)** — The Flutter web visualizer that consumes the JSON snapshot.
