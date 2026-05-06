@@ -1,7 +1,16 @@
-// side_panel.dart — variants list and lace segment list.
+// side_panel.dart — variants list / lace segments list (overview mode) and
+// focused-variant drilldown with usages, tests, and gaps (detail mode).
 //
 // Width is controlled by the parent (SizedBox in wide layouts, Drawer in
 // compact). The panel itself does not impose a width.
+//
+// Mode switch:
+//   - focusedIndex == null  → overview mode (existing behaviour).
+//   - focusedIndex != null  → detail mode for snapshot.variants[focusedIndex].
+//
+// The three detail sections (`_UsagesList`, `_TestsList`, `_GapsList`)
+// are level-agnostic: they take a list of typed items and render rows.
+// v3+ sub-circle drilldown will compose them inside nested circles.
 
 import 'package:flutter/material.dart';
 
@@ -18,11 +27,15 @@ class SidePanel extends StatelessWidget {
   });
 
   final CoverageSnapshot snapshot;
-  final int focusedIndex;
-  final ValueChanged<int> onVariantTap;
+  final int? focusedIndex;
+  final ValueChanged<int?> onVariantTap;
 
   @override
   Widget build(BuildContext context) {
+    final focused = focusedIndex;
+    final inDetailMode =
+        focused != null && focused >= 0 && focused < snapshot.variants.length;
+
     return DecoratedBox(
       decoration: BoxDecoration(
         color: AppColor.background.color,
@@ -30,22 +43,49 @@ class SidePanel extends StatelessWidget {
       ),
       child: SingleChildScrollView(
         padding: EdgeInsets.symmetric(vertical: AppSpacing.lg.px),
-        child: Column(
-          crossAxisAlignment: CrossAxisAlignment.stretch,
-          children: [
-            const _SectionHeader(label: UiLabel.sectionVariants),
-            for (var i = 0; i < snapshot.variants.length; i++)
-              _VariantRow(
-                variant: snapshot.variants[i],
-                isFocused: i == focusedIndex,
-                onTap: () => onVariantTap(i),
+        child: inDetailMode
+            ? _DetailMode(
+                snapshot: snapshot,
+                focusedVariant: snapshot.variants[focused],
+                onBack: () => onVariantTap(null),
+              )
+            : _OverviewMode(
+                snapshot: snapshot,
+                focusedIndex: focusedIndex,
+                onVariantTap: onVariantTap,
               ),
-            SizedBox(height: AppSpacing.lg.px),
-            const _SectionHeader(label: UiLabel.sectionLaceSegments),
-            ..._segmentRows(),
-          ],
-        ),
       ),
+    );
+  }
+}
+
+class _OverviewMode extends StatelessWidget {
+  const _OverviewMode({
+    required this.snapshot,
+    required this.focusedIndex,
+    required this.onVariantTap,
+  });
+
+  final CoverageSnapshot snapshot;
+  final int? focusedIndex;
+  final ValueChanged<int?> onVariantTap;
+
+  @override
+  Widget build(BuildContext context) {
+    return Column(
+      crossAxisAlignment: CrossAxisAlignment.stretch,
+      children: [
+        const _SectionHeader(label: UiLabel.sectionVariants),
+        for (var i = 0; i < snapshot.variants.length; i++)
+          _VariantRow(
+            variant: snapshot.variants[i],
+            isFocused: i == focusedIndex,
+            onTap: () => onVariantTap(i),
+          ),
+        SizedBox(height: AppSpacing.lg.px),
+        const _SectionHeader(label: UiLabel.sectionLaceSegments),
+        ..._segmentRows(),
+      ],
     );
   }
 
@@ -60,6 +100,269 @@ class SidePanel extends StatelessWidget {
         ),
     ];
   }
+}
+
+class _DetailMode extends StatelessWidget {
+  const _DetailMode({
+    required this.snapshot,
+    required this.focusedVariant,
+    required this.onBack,
+  });
+
+  final CoverageSnapshot snapshot;
+  final VariantInfo focusedVariant;
+  final VoidCallback onBack;
+
+  @override
+  Widget build(BuildContext context) {
+    final usages = snapshot.usages
+        .where((u) => u.variant == focusedVariant.qualifiedName)
+        .toList(growable: false);
+    final tests = snapshot.tests
+        .where((t) => t.variant == focusedVariant.qualifiedName)
+        .toList(growable: false);
+    final gaps = snapshot.gaps
+        .where((g) => g.variant == focusedVariant.qualifiedName)
+        .toList(growable: false);
+    final pct = (focusedVariant.coverageRatio * 100).round();
+
+    return Column(
+      crossAxisAlignment: CrossAxisAlignment.stretch,
+      children: [
+        InkWell(
+          onTap: onBack,
+          child: Padding(
+            padding: EdgeInsets.symmetric(
+              horizontal: AppSpacing.lg.px,
+              vertical: AppSpacing.xs.px,
+            ),
+            child: Text(
+              UiLabel.detailBack.text,
+              style: AppText.hint.styleWith(AppColor.textMuted.color),
+            ),
+          ),
+        ),
+        Padding(
+          padding: EdgeInsets.fromLTRB(
+            AppSpacing.lg.px,
+            AppSpacing.sm.px,
+            AppSpacing.lg.px,
+            AppSpacing.md.px,
+          ),
+          child: Row(
+            children: [
+              _Dot(color: focusedVariant.color, focused: true),
+              SizedBox(width: AppSpacing.sm.px),
+              Expanded(
+                child: Text(
+                  focusedVariant.name,
+                  style: AppText.appTitle
+                      .styleWith(AppColor.emphasis.color)
+                      .copyWith(letterSpacing: 0),
+                ),
+              ),
+              Text(
+                '$pct%',
+                style: AppText.count.styleWith(AppColor.textMuted.color),
+              ),
+            ],
+          ),
+        ),
+        _UsagesList(usages: usages),
+        SizedBox(height: AppSpacing.md.px),
+        _TestsList(tests: tests),
+        SizedBox(height: AppSpacing.md.px),
+        _GapsList(gaps: gaps),
+      ],
+    );
+  }
+}
+
+class _UsagesList extends StatelessWidget {
+  const _UsagesList({required this.usages});
+
+  final List<UsageInfo> usages;
+
+  @override
+  Widget build(BuildContext context) {
+    return _DetailSection(
+      header: UiLabel.detailUsages,
+      emptyLabel: UiLabel.detailNoUsages,
+      isEmpty: usages.isEmpty,
+      children: [
+        for (final usage in usages)
+          _LocationRow(
+            location: usage.location,
+            scope: _formatClassMethod(
+              containingClass: usage.containingClass,
+              containingMethod: usage.containingMethod,
+            ),
+          ),
+      ],
+    );
+  }
+}
+
+class _TestsList extends StatelessWidget {
+  const _TestsList({required this.tests});
+
+  final List<TestInfo> tests;
+
+  @override
+  Widget build(BuildContext context) {
+    return _DetailSection(
+      header: UiLabel.detailTests,
+      emptyLabel: UiLabel.detailNoTests,
+      isEmpty: tests.isEmpty,
+      children: [
+        for (final t in tests)
+          _LocationRow(
+            location: t.location,
+            scope: t.containingGroup,
+            trailingFeature: t.feature,
+          ),
+      ],
+    );
+  }
+}
+
+class _GapsList extends StatelessWidget {
+  const _GapsList({required this.gaps});
+
+  final List<GapInfo> gaps;
+
+  @override
+  Widget build(BuildContext context) {
+    return _DetailSection(
+      header: UiLabel.detailGaps,
+      emptyLabel: UiLabel.detailFullyCovered,
+      isEmpty: gaps.isEmpty,
+      children: [
+        for (final g in gaps)
+          Padding(
+            padding: EdgeInsets.symmetric(
+              horizontal: AppSpacing.lg.px,
+              vertical: AppSpacing.xs.px,
+            ),
+            child: Row(
+              children: [
+                Expanded(
+                  child: Text(
+                    g.feature,
+                    style: AppText.body
+                        .styleWith(AppColor.textPrimary.color),
+                  ),
+                ),
+                Text(
+                  UiLabel.badgeGap.text,
+                  style: AppText.badge.styleWith(AppColor.statusGap.color),
+                ),
+              ],
+            ),
+          ),
+      ],
+    );
+  }
+}
+
+class _DetailSection extends StatelessWidget {
+  const _DetailSection({
+    required this.header,
+    required this.emptyLabel,
+    required this.isEmpty,
+    required this.children,
+  });
+
+  final UiLabel header;
+  final UiLabel emptyLabel;
+  final bool isEmpty;
+  final List<Widget> children;
+
+  @override
+  Widget build(BuildContext context) {
+    return Column(
+      crossAxisAlignment: CrossAxisAlignment.stretch,
+      children: [
+        _SectionHeader(label: header),
+        if (isEmpty)
+          Padding(
+            padding: EdgeInsets.symmetric(
+              horizontal: AppSpacing.lg.px,
+              vertical: AppSpacing.xs.px,
+            ),
+            child: Text(
+              emptyLabel.text,
+              style: AppText.bodyMuted.styleWith(AppColor.textHint.color),
+            ),
+          )
+        else
+          ...children,
+      ],
+    );
+  }
+}
+
+class _LocationRow extends StatelessWidget {
+  const _LocationRow({
+    required this.location,
+    this.scope,
+    this.trailingFeature,
+  });
+
+  final SourceLocation location;
+  final String? scope;
+  final String? trailingFeature;
+
+  @override
+  Widget build(BuildContext context) {
+    return Padding(
+      padding: EdgeInsets.symmetric(
+        horizontal: AppSpacing.lg.px,
+        vertical: AppSpacing.xs.px,
+      ),
+      child: Column(
+        crossAxisAlignment: CrossAxisAlignment.start,
+        children: [
+          if (scope != null && scope!.isNotEmpty)
+            Text(
+              scope!,
+              style: AppText.body.styleWith(AppColor.textPrimary.color),
+            ),
+          SizedBox(height: AppSpacing.xs.px - 2),
+          Row(
+            crossAxisAlignment: CrossAxisAlignment.start,
+            children: [
+              Expanded(
+                child: SelectableText(
+                  location.displayPath,
+                  style: AppText.monoTiny.styleWith(AppColor.textHint.color),
+                ),
+              ),
+              if (trailingFeature != null) ...[
+                SizedBox(width: AppSpacing.sm.px),
+                Text(
+                  trailingFeature!,
+                  style: AppText.bodyMuted.styleWith(AppColor.textMuted.color),
+                ),
+              ],
+            ],
+          ),
+        ],
+      ),
+    );
+  }
+}
+
+String? _formatClassMethod({
+  required String? containingClass,
+  required String? containingMethod,
+}) {
+  return switch ((containingClass, containingMethod)) {
+    (final c?, final m?) => '$c.$m',
+    (final c?, null) => c,
+    (null, final m?) => m,
+    (null, null) => null,
+  };
 }
 
 class _SectionHeader extends StatelessWidget {
@@ -114,7 +417,9 @@ class _VariantRow extends StatelessWidget {
                 variant.name,
                 style: AppText.body
                     .styleWith(
-                      isFocused ? AppColor.emphasis.color : AppColor.textPrimary.color,
+                      isFocused
+                          ? AppColor.emphasis.color
+                          : AppColor.textPrimary.color,
                     )
                     .copyWith(
                       fontWeight:

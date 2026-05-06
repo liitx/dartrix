@@ -7,6 +7,13 @@
 //     for label widgets.
 //   - Stack(clipBehavior: Clip.none) lets labels render past the SizedBox
 //     edge into that reserved padding zone.
+//
+// Hit testing:
+//   - GestureDetector wraps the Stack inside the SizedBox (NOT the outer
+//     Padding) so `details.localPosition` is in painter-local coordinates.
+//   - On tap, `regionPathsFor` produces the same per-vertex Paths the
+//     painter draws. The first `path.contains(localPosition)` returns
+//     the focused index; misses call `onVariantTap(null)` to clear focus.
 
 import 'dart:math' as math;
 
@@ -14,6 +21,7 @@ import 'package:flutter/material.dart';
 
 import 'coverage.dart';
 import 'lace_path.dart';
+import 'region_geometry.dart';
 import 'shoelace_painter.dart';
 import 'ui/tokens.dart';
 
@@ -21,11 +29,13 @@ class ShoelaceCanvas extends StatelessWidget {
   const ShoelaceCanvas({
     required this.snapshot,
     required this.focusedIndex,
+    required this.onVariantTap,
     super.key,
   });
 
   final CoverageSnapshot snapshot;
-  final int focusedIndex;
+  final int? focusedIndex;
+  final ValueChanged<int?> onVariantTap;
 
   @override
   Widget build(BuildContext context) {
@@ -43,25 +53,48 @@ class ShoelaceCanvas extends StatelessWidget {
             child: SizedBox(
               width: canvasSide,
               height: canvasSide,
-              child: Stack(
-                clipBehavior: Clip.none,
-                children: [
-                  Positioned.fill(
-                    child: CustomPaint(
-                      painter: ShoelacePainter(
-                        snapshot: snapshot,
-                        focusedIndex: focusedIndex,
+              child: GestureDetector(
+                behavior: HitTestBehavior.opaque,
+                onTapUp: (details) =>
+                    _handleTap(details.localPosition, canvasSide),
+                child: Stack(
+                  clipBehavior: Clip.none,
+                  children: [
+                    Positioned.fill(
+                      child: CustomPaint(
+                        painter: ShoelacePainter(
+                          snapshot: snapshot,
+                          focusedIndex: focusedIndex,
+                        ),
                       ),
                     ),
-                  ),
-                  ..._buildLabels(canvasSide),
-                ],
+                    ..._buildLabels(canvasSide),
+                  ],
+                ),
               ),
             ),
           );
         },
       ),
     );
+  }
+
+  /// Hit-test the tapped position against the per-vertex region paths.
+  /// First match wins; a miss clears focus by emitting null.
+  void _handleTap(Offset localPosition, double canvasSide) {
+    final paths = regionPathsFor(
+      vertexCount: snapshot.variants.length,
+      centerX: canvasSide / 2,
+      centerY: canvasSide / 2,
+      discRadius: canvasSide / 2 * AppLayout.discRadiusRatio,
+    );
+    for (final entry in paths.entries) {
+      if (entry.value.contains(localPosition)) {
+        onVariantTap(entry.key);
+        return;
+      }
+    }
+    onVariantTap(null);
   }
 
   List<Widget> _buildLabels(double canvasSide) {

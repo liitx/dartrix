@@ -12,13 +12,15 @@ import 'package:flutter/material.dart';
 /// Schema version of the JSON payload. Adding a revision = add a case +
 /// every `parse` switch breaks until updated.
 enum CoverageSchema {
-  v1('zedup-shoelace/v1');
+  v1('zedup-shoelace/v1'),
+  v2('zedup-shoelace/v2');
 
   const CoverageSchema(this.id);
   final String id;
 
   static CoverageSchema parse(String s) => switch (s) {
         'zedup-shoelace/v1' => CoverageSchema.v1,
+        'zedup-shoelace/v2' => CoverageSchema.v2,
         _ => throw FormatException('Unknown coverage schema: "$s"'),
       };
 }
@@ -107,11 +109,16 @@ final class TestInfo {
     required this.variant,
     required this.feature,
     required this.location,
+    this.containingGroup,
   });
 
   final String variant;
   final String feature;
   final SourceLocation location;
+
+  /// Full `group()` ancestry breadcrumb joined by " / " (schema v2+).
+  /// Null for v1 payloads or for tests not nested in any `group()`.
+  final String? containingGroup;
 
   factory TestInfo.fromJson(Map<String, dynamic> json) => TestInfo(
         variant: json['variant'] as String,
@@ -120,16 +127,30 @@ final class TestInfo {
           file: json['file'] as String,
           line: json['line'] as int,
         ),
+        containingGroup: json['containingGroup'] as String?,
       );
 }
 
 /// One non-test reference to a variant at file:line.
 @immutable
 final class UsageInfo {
-  const UsageInfo({required this.variant, required this.location});
+  const UsageInfo({
+    required this.variant,
+    required this.location,
+    this.containingClass,
+    this.containingMethod,
+  });
 
   final String variant;
   final SourceLocation location;
+
+  /// Innermost enclosing class name (schema v2+). Null for v1 payloads or
+  /// when the reference is at top level / inside an anonymous closure.
+  final String? containingClass;
+
+  /// Innermost enclosing method name (schema v2+). Null for v1 payloads
+  /// or when the reference is at top level / inside an expression body.
+  final String? containingMethod;
 
   factory UsageInfo.fromJson(Map<String, dynamic> json) => UsageInfo(
         variant: json['variant'] as String,
@@ -137,6 +158,8 @@ final class UsageInfo {
           file: json['file'] as String,
           line: json['line'] as int,
         ),
+        containingClass: json['containingClass'] as String?,
+        containingMethod: json['containingMethod'] as String?,
       );
 }
 

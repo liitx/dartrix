@@ -32,9 +32,9 @@ class ShoelacePage extends StatefulWidget {
 
 class _ShoelacePageState extends State<ShoelacePage> {
   late final Stream<LoadState> _stream = watchSnapshot(widget.snapshotUrl);
-  int _focusedIndex = 0;
+  int? _focusedIndex;
 
-  void _focus(int index) => setState(() => _focusedIndex = index);
+  void _focus(int? index) => setState(() => _focusedIndex = index);
 
   @override
   Widget build(BuildContext context) {
@@ -86,8 +86,8 @@ class _Body extends StatelessWidget {
   });
 
   final LoadState state;
-  final int focusedIndex;
-  final ValueChanged<int> onVariantTap;
+  final int? focusedIndex;
+  final ValueChanged<int?> onVariantTap;
   final bool isCompact;
 
   @override
@@ -122,8 +122,8 @@ class _LoadedBody extends StatelessWidget {
   });
 
   final CoverageSnapshot snapshot;
-  final int focusedIndex;
-  final ValueChanged<int> onVariantTap;
+  final int? focusedIndex;
+  final ValueChanged<int?> onVariantTap;
   final bool isCompact;
 
   @override
@@ -131,6 +131,7 @@ class _LoadedBody extends StatelessWidget {
     final canvas = ShoelaceCanvas(
       snapshot: snapshot,
       focusedIndex: focusedIndex,
+      onVariantTap: onVariantTap,
     );
     final progress = CoverageProgressBar(snapshot: snapshot);
 
