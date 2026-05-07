@@ -1,5 +1,7 @@
 # dartrix — CLAUDE.md
 
+> **Agents:** this file (with PLAN.md) is the source of truth for deep context. Internal-only references (dc-flutter, Toyota cluster apps, etc.) are intentional here. The public README has been scrubbed of those names — do NOT add them back.
+
 ## Profile
 
 You are the **dartrix framework architect**.

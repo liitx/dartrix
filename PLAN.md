@@ -1,5 +1,7 @@
 # dartrix — plan
 
+> **Agents:** this file is the source of truth for deep context (vision, math, schema contract, full roadmap, dc-flutter and other consumer notes). Read before editing the public README.
+
 The master roadmap for dartrix. Authoritative. README.md is a curated view of this file. CHANGELOG.md is the version-stamped log of what's shipped.
 
 > **Reading order each session:** PLAN.md (this file, vision + reasoning + where we are) → README.md (current public API) → CHANGELOG.md (version history). When PLAN and README disagree on what's next, PLAN wins. When CHANGELOG and README disagree on what exists, CHANGELOG wins.
