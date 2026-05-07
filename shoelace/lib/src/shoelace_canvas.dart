@@ -148,22 +148,45 @@ class _VariantLabel extends StatelessWidget {
       radius: labelRadius,
     );
     final isLeftHalf = math.cos(angle) < 0;
-    final color = isFocused ? AppColor.emphasis.color : variant.color;
+
+    // Quadrant-aware vertical anchor — labels above the vertex when in
+    // the top half of the disc, below when in the bottom half, vertically
+    // centered when near the horizontal axis. Prevents the label from
+    // sitting on top of the vertex dot at 6 / 12 o'clock.
+    final dy = position.y - centerY;
+    final centerBand = labelRadius * AppLayout.labelCenterBandRatio;
+    final topValue = switch (dy) {
+      _ when dy.abs() < centerBand =>
+        position.y - AppLayout.labelLineHeight / 2,
+      _ when dy < 0 =>
+        position.y - AppLayout.labelLineHeight - AppLayout.labelGap / 3,
+      _ => position.y + AppLayout.labelGap / 3,
+    };
 
     return Positioned(
       left: isLeftHalf ? null : position.x,
       right: isLeftHalf ? containerSide - position.x : null,
-      top: position.y - 8,
+      top: topValue,
       child: ConstrainedBox(
         constraints: const BoxConstraints(maxWidth: AppLayout.maxLabelWidth),
         child: Text(
           variant.name,
           softWrap: false,
           overflow: TextOverflow.fade,
+          maxLines: 1,
           textAlign: isLeftHalf ? TextAlign.right : TextAlign.left,
-          style: AppText.body.styleWith(color).copyWith(
-                fontWeight:
-                    isFocused ? FontWeight.bold : FontWeight.w500,
+          style: AppText.body.styleWith(variant.color).copyWith(
+                fontWeight: isFocused ? FontWeight.bold : FontWeight.w500,
+                shadows: isFocused
+                    ? [
+                        Shadow(
+                          color: variant.color.withValues(
+                            alpha: AppPaint.labelFocusShadowAlpha,
+                          ),
+                          blurRadius: AppPaint.labelFocusShadowBlur,
+                        ),
+                      ]
+                    : null,
               ),
         ),
       ),

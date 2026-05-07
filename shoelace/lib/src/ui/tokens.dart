@@ -19,6 +19,7 @@ enum AppColor {
   statusError(0xfff07e7e),
   statusGap(0xffe8c574),
   statusComplete(0xff7fdc8e),
+  statusFailing(0xffe55353),
   accent(0xff63d3c1),
   emphasis(0xffffffff);
 
@@ -41,14 +42,22 @@ enum UiLabel {
   badgeComplete('COMPLETE'),
   badgeCovered('COVERED'),
   badgeGap('GAP'),
+  badgeFailing('FAILING'),
   arrow('→'),
   detailUsages('USAGES'),
   detailTests('TESTS'),
   detailGaps('GAPS'),
   detailNoUsages('No usages found in lib/'),
+  detailNoUsagesForGap('No usages in files matching this feature'),
+  detailUsagesOfVariant('USAGES OF THIS VARIANT'),
   detailNoTests('No tests found for this variant'),
   detailFullyCovered('Fully covered — no gaps'),
   detailBack('← Back to overview'),
+  detailFailureLogHint('log: '),
+  iconPassing('✓'),
+  iconFailing('✗'),
+  iconSkipped('○'),
+  iconUnknown('?'),
   initializing('Initializing…'),
   loadingPrefix('Loading'),
   errorTitle('Coverage data unavailable'),
@@ -75,6 +84,14 @@ enum AppSpacing {
 /// drop a single style ref instead of reconstructing every time.
 enum AppText {
   appTitle(fontSize: 20, fontWeight: FontWeight.bold, letterSpacing: 2),
+  enumHeader(
+    fontSize: 26,
+    fontWeight: FontWeight.w700,
+    letterSpacing: 1.4,
+    decoration: TextDecoration.underline,
+    decorationStyle: TextDecorationStyle.solid,
+    decorationThickness: 2,
+  ),
   sectionHeader(fontSize: 15, fontWeight: FontWeight.bold, letterSpacing: 1.5),
   badge(fontSize: 20, fontWeight: FontWeight.bold, letterSpacing: 0.8),
   body(fontSize: 20, fontWeight: FontWeight.w500),
@@ -92,12 +109,18 @@ enum AppText {
     required this.fontWeight,
     this.letterSpacing,
     this.fontFamily,
+    this.decoration,
+    this.decorationStyle,
+    this.decorationThickness,
   });
 
   final double fontSize;
   final FontWeight fontWeight;
   final double? letterSpacing;
   final String? fontFamily;
+  final TextDecoration? decoration;
+  final TextDecorationStyle? decorationStyle;
+  final double? decorationThickness;
 
   /// Renders to a `TextStyle` with the given color.
   TextStyle styleWith(Color color) => TextStyle(
@@ -106,6 +129,10 @@ enum AppText {
     fontWeight: fontWeight,
     letterSpacing: letterSpacing,
     fontFamily: fontFamily,
+    decoration: decoration,
+    decorationStyle: decorationStyle,
+    decorationThickness: decorationThickness,
+    decorationColor: color,
   );
 }
 
@@ -118,11 +145,17 @@ class AppPaint {
 
   // ── Region fills ───────────────────────────────────────────────────────
 
-  /// Alpha range for region fills. Floor keeps variant identity readable
-  /// (red looks red, orange looks orange); ceiling stays under fully
-  /// opaque so the disc gradient still bleeds through covered regions.
+  /// Alpha range for covered region fills. Subtle by design — covered is
+  /// the "good" state, the eye should drift past it.
   static const double regionAlphaMin = 0.20;
   static const double regionAlphaMax = 0.30;
+
+  /// Alpha range for the failing-color region overlay (worst-state-wins).
+  /// Translucent enough that the inner guide rings still show through, but
+  /// loud enough to read as the dominant signal. Bottom of the range
+  /// applies when only some tests fail; ceiling when all fail.
+  static const double regionFailingAlphaMin = 0.30;
+  static const double regionFailingAlphaMax = 0.45;
 
   // ── Chord stroke ───────────────────────────────────────────────────────
 
@@ -159,6 +192,22 @@ class AppPaint {
   /// chords.
   static const double guideRingStroke = 3;
 
+  // ── Vertex label drop shadow ───────────────────────────────────────────
+
+  /// Soft glow rendered behind the focused vertex label so it pops without
+  /// losing its variant color identity. Matches the chord-glow language.
+  static const double labelFocusShadowAlpha = 0.85;
+  static const double labelFocusShadowBlur = 14;
+
+  // ── Inner guide rings (dartboard backdrop) ─────────────────────────────
+
+  /// Concentric rings drawn between the disc base and the region fills.
+  /// They peek through the translucent regions to make opacity legible —
+  /// without them the disc reads as a flat painted area.
+  static const List<double> innerRingRatios = [0.33, 0.55, 0.77];
+  static const double innerRingStroke = 0.8;
+  static const double innerRingAlpha = 0.55;
+
   // ── Disc base ──────────────────────────────────────────────────────────
 
   /// Radial gradient tint for the empty disc. Decreasing white overlay
@@ -179,7 +228,7 @@ class AppLayout {
   static const double compactBreakpoint = 768;
 
   /// Side panel width on wide viewports.
-  static const double sidePanelWidth = 300;
+  static const double sidePanelWidth = 360;
 
   /// Maximum body width on very wide viewports. Centered with margin so
   /// the canvas and side panel sit close together rather than spreading
@@ -206,4 +255,14 @@ class AppLayout {
 
   /// Pixel offset between disc rim and the label's anchor point.
   static const double labelGap = 12;
+
+  /// Approximate vertical height of one label line. Used to push labels
+  /// above the vertex when the vertex sits in the top half of the disc.
+  static const double labelLineHeight = 24;
+
+  /// Fraction of `labelRadius` defining the "center band" — vertices whose
+  /// |dy| from the disc center is below this fraction get vertically
+  /// centered labels (rather than top/bottom anchored). Keeps the 3 / 9
+  /// o'clock horizontal-edge labels visually balanced.
+  static const double labelCenterBandRatio = 0.3;
 }

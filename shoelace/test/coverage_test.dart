@@ -67,7 +67,11 @@ void main() {
       final snapshot = CoverageSnapshot.fromJson(json);
       expect(
         snapshot.schema,
-        anyOf(equals(CoverageSchema.v1), equals(CoverageSchema.v2)),
+        anyOf(
+          equals(CoverageSchema.v1),
+          equals(CoverageSchema.v2),
+          equals(CoverageSchema.v3),
+        ),
       );
       expect(snapshot.variants, isNotEmpty);
       expect(snapshot.averageCoverage, isA<double>());
@@ -113,7 +117,148 @@ void main() {
       expect(snapshot.usages.single.containingMethod, isNull);
     });
   });
+
+  group('CoverageSnapshot.fromJson — v3 schema', () {
+    test('parses the v3 schema', () {
+      final snapshot = CoverageSnapshot.fromJson(_minimalV3());
+      expect(snapshot.schema, equals(CoverageSchema.v3));
+    });
+
+    test('reads status on tests when present', () {
+      final snapshot = CoverageSnapshot.fromJson(_minimalV3());
+      expect(snapshot.tests.single.status, equals(TestStatus.failing));
+    });
+
+    test('reads failureMessage on tests when present', () {
+      final snapshot = CoverageSnapshot.fromJson(_minimalV3());
+      expect(
+        snapshot.tests.single.failureMessage,
+        equals('expected 5 got 4'),
+      );
+    });
+
+    test('reads logPath on tests when present', () {
+      final snapshot = CoverageSnapshot.fromJson(_minimalV3());
+      expect(
+        snapshot.tests.single.logPath,
+        equals('/Users/foo/.zedup/test-runs/2026-05-06.log'),
+      );
+    });
+
+    test('reads cachedAt on tests when present', () {
+      final snapshot = CoverageSnapshot.fromJson(_minimalV3());
+      expect(
+        snapshot.tests.single.cachedAt,
+        equals(DateTime.parse('2026-05-06T13:25:00.000')),
+      );
+    });
+
+    test('reads staleness on tests when present', () {
+      final snapshot = CoverageSnapshot.fromJson(_minimalV3());
+      expect(snapshot.tests.single.staleness, equals(Staleness.fresh));
+    });
+
+    test('v3 payload missing v3 fields parses with nulls', () {
+      final json = _minimalV3();
+      (json['tests'] as List).first
+        ..remove('status')
+        ..remove('failureMessage')
+        ..remove('logPath')
+        ..remove('cachedAt')
+        ..remove('staleness');
+      final snapshot = CoverageSnapshot.fromJson(json);
+      final t = snapshot.tests.single;
+      expect(t.status, isNull);
+      expect(t.failureMessage, isNull);
+      expect(t.logPath, isNull);
+      expect(t.cachedAt, isNull);
+      expect(t.staleness, isNull);
+    });
+
+    test('v2 payload parses with v3 fields null', () {
+      final snapshot = CoverageSnapshot.fromJson(_minimalV2());
+      final t = snapshot.tests.single;
+      expect(snapshot.schema, equals(CoverageSchema.v2));
+      expect(t.status, isNull);
+      expect(t.failureMessage, isNull);
+      expect(t.cachedAt, isNull);
+      expect(t.staleness, isNull);
+    });
+
+    test('v1 payload parses with v3 fields null', () {
+      final snapshot = CoverageSnapshot.fromJson(_minimalV1WithEntries());
+      final t = snapshot.tests.single;
+      expect(snapshot.schema, equals(CoverageSchema.v1));
+      expect(t.status, isNull);
+      expect(t.failureMessage, isNull);
+      expect(t.cachedAt, isNull);
+      expect(t.staleness, isNull);
+    });
+  });
+
+  group('TestStatus.tryParse', () {
+    for (final s in TestStatus.values) {
+      test('round-trips ${s.name}', () {
+        expect(TestStatus.tryParse(s.name), equals(s));
+      });
+    }
+
+    test('null → null', () {
+      expect(TestStatus.tryParse(null), isNull);
+    });
+
+    test('unknown → FormatException', () {
+      expect(() => TestStatus.tryParse('flaky'), throwsFormatException);
+    });
+  });
+
+  group('Staleness.tryParse', () {
+    for (final s in Staleness.values) {
+      test('round-trips ${s.name}', () {
+        expect(Staleness.tryParse(s.name), equals(s));
+      });
+    }
+
+    test('null → null', () {
+      expect(Staleness.tryParse(null), isNull);
+    });
+
+    test('unknown → FormatException', () {
+      expect(() => Staleness.tryParse('warm'), throwsFormatException);
+    });
+  });
 }
+
+Map<String, dynamic> _minimalV3() => {
+      'schema': 'zedup-shoelace/v3',
+      'generatedAt': '2026-05-06T13:25:00.000',
+      'variants': [
+        {
+          'name': 'inReview',
+          'type': 'WorkStatus',
+          'color': '#3366ff',
+          'features': ['dashboard'],
+          'coverageRatio': 0.0,
+        },
+      ],
+      'features': ['dashboard'],
+      'gaps': const <Map<String, dynamic>>[],
+      'tests': [
+        {
+          'variant': 'WorkStatus.inReview',
+          'feature': 'dashboard',
+          'file': 'test/features/dashboard/zedup_dashboard_test.dart',
+          'line': 142,
+          'containingGroup': 'WorkStatus / rendering',
+          'status': 'failing',
+          'failureMessage': 'expected 5 got 4',
+          'logPath': '/Users/foo/.zedup/test-runs/2026-05-06.log',
+          'cachedAt': '2026-05-06T13:25:00.000',
+          'staleness': 'fresh',
+        },
+      ],
+      'usages': const <Map<String, dynamic>>[],
+    };
 
 Map<String, dynamic> _minimalV1() => {
       'schema': 'zedup-shoelace/v1',
