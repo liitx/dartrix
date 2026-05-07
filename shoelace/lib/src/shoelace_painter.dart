@@ -45,6 +45,7 @@ class ShoelacePainter extends CustomPainter {
         math.min(size.width, size.height) / 2 * AppLayout.discRadiusRatio;
 
     _drawDiscBase(canvas, centerX, centerY, discRadius);
+    _drawInnerGuideRings(canvas, centerX, centerY, discRadius);
     _drawRegions(canvas, centerX, centerY, discRadius);
     _drawGuideRing(canvas, centerX, centerY, discRadius);
     _drawLaces(canvas, centerX, centerY, discRadius);
@@ -103,17 +104,60 @@ class ShoelacePainter extends CustomPainter {
     }
   }
 
-  /// Shared region paint. Translucent so the disc gradient bleeds through.
+  /// Shared region paint. Worst-state-wins. Region color tracks *state*,
+  /// not variant identity — variant identity stays in the node dot and the
+  /// chord stroke.
+  /// - [RegionState.missing] paints nothing — absence is the signal.
+  /// - [RegionState.failing] paints red — demands attention.
+  /// - [RegionState.covered] paints green — the "passing" affirmative.
   void _fillRegion(Canvas canvas, Path path, VariantInfo variant) {
-    final ratio = variant.coverageRatio.clamp(0.0, 1.0);
-    final alpha = AppPaint.regionAlphaMin +
-        (AppPaint.regionAlphaMax - AppPaint.regionAlphaMin) * ratio;
+    final region = snapshot.regionStateFor(variant);
+    if (region.state == RegionState.missing) return;
+    final intensity = region.intensity.clamp(0.0, 1.0);
+    final (color, alpha) = switch (region.state) {
+      RegionState.failing => (
+          AppColor.statusFailing.color,
+          AppPaint.regionFailingAlphaMin +
+              (AppPaint.regionFailingAlphaMax - AppPaint.regionFailingAlphaMin) *
+                  intensity,
+        ),
+      RegionState.covered => (
+          AppColor.statusComplete.color,
+          AppPaint.regionAlphaMin +
+              (AppPaint.regionAlphaMax - AppPaint.regionAlphaMin) * intensity,
+        ),
+      RegionState.missing => throw StateError('handled above'),
+    };
     canvas.drawPath(
       path,
       Paint()
-        ..color = variant.color.withValues(alpha: alpha)
+        ..color = color.withValues(alpha: alpha)
         ..isAntiAlias = true,
     );
+  }
+
+  /// Faint concentric rings inside the disc, dartboard-style. Drawn under
+  /// the regions so the rings peek through the translucent fills, making
+  /// region opacity readable rather than reading as a flat painted area.
+  void _drawInnerGuideRings(
+    Canvas canvas,
+    double centerX,
+    double centerY,
+    double discRadius,
+  ) {
+    final paint = Paint()
+      ..color = AppColor.guideRing.color
+          .withValues(alpha: AppPaint.innerRingAlpha)
+      ..style = PaintingStyle.stroke
+      ..strokeWidth = AppPaint.innerRingStroke
+      ..isAntiAlias = true;
+    for (final ratio in AppPaint.innerRingRatios) {
+      canvas.drawCircle(
+        Offset(centerX, centerY),
+        discRadius * ratio,
+        paint,
+      );
+    }
   }
 
   /// Faint stippled guide ring along the inscribed circle.
@@ -164,47 +208,37 @@ class ShoelacePainter extends CustomPainter {
         Offset(fromPosition.x, fromPosition.y),
         Offset(toPosition.x, toPosition.y),
         toVariant.color,
-        toVariant.coverageRatio,
       );
     }
   }
 
-  /// One chord. Uniform [AppPaint.chordCoreWidth] core stroke for every
-  /// chord so thickness reads consistently across covered and gap
-  /// segments. Alpha encodes coverage. Covered chords get a wide blurred
-  /// glow halo behind the core for a lit neon edge.
+  /// One chord. Uniform [AppPaint.chordCoreWidth] core stroke and the same
+  /// blurred glow halo for every chord — chord rendering carries variant
+  /// identity (color), nothing else. Region fills carry coverage state.
   void _drawChord(
     Canvas canvas,
     Offset from,
     Offset to,
     Color chordColor,
-    double coverageRatio,
   ) {
-    final ratio = coverageRatio.clamp(0.0, 1.0);
-
-    if (ratio >= 1.0) {
-      canvas.drawLine(
-        from,
-        to,
-        Paint()
-          ..color = chordColor.withValues(alpha: AppPaint.chordGlowAlpha)
-          ..strokeWidth = AppPaint.chordGlowWidth
-          ..strokeCap = StrokeCap.round
-          ..maskFilter = const ui.MaskFilter.blur(
-            ui.BlurStyle.normal,
-            AppPaint.chordGlowBlur,
-          )
-          ..isAntiAlias = true,
-      );
-    }
-
-    final coreAlpha = AppPaint.chordAlphaMin +
-        (AppPaint.chordAlphaMax - AppPaint.chordAlphaMin) * ratio;
     canvas.drawLine(
       from,
       to,
       Paint()
-        ..color = chordColor.withValues(alpha: coreAlpha)
+        ..color = chordColor.withValues(alpha: AppPaint.chordGlowAlpha)
+        ..strokeWidth = AppPaint.chordGlowWidth
+        ..strokeCap = StrokeCap.round
+        ..maskFilter = const ui.MaskFilter.blur(
+          ui.BlurStyle.normal,
+          AppPaint.chordGlowBlur,
+        )
+        ..isAntiAlias = true,
+    );
+    canvas.drawLine(
+      from,
+      to,
+      Paint()
+        ..color = chordColor.withValues(alpha: AppPaint.chordAlphaMax)
         ..strokeWidth = AppPaint.chordCoreWidth
         ..strokeCap = StrokeCap.round
         ..isAntiAlias = true,

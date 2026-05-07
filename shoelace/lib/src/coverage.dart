@@ -13,7 +13,8 @@ import 'package:flutter/material.dart';
 /// every `parse` switch breaks until updated.
 enum CoverageSchema {
   v1('zedup-shoelace/v1'),
-  v2('zedup-shoelace/v2');
+  v2('zedup-shoelace/v2'),
+  v3('zedup-shoelace/v3');
 
   const CoverageSchema(this.id);
   final String id;
@@ -21,9 +22,47 @@ enum CoverageSchema {
   static CoverageSchema parse(String s) => switch (s) {
         'zedup-shoelace/v1' => CoverageSchema.v1,
         'zedup-shoelace/v2' => CoverageSchema.v2,
+        'zedup-shoelace/v3' => CoverageSchema.v3,
         _ => throw FormatException('Unknown coverage schema: "$s"'),
       };
 }
+
+/// Outcome of one test run (schema v3+).
+enum TestStatus {
+  passing,
+  failing,
+  error,
+  skipped;
+
+  static TestStatus? tryParse(String? s) => switch (s) {
+        null => null,
+        'passing' => TestStatus.passing,
+        'failing' => TestStatus.failing,
+        'error' => TestStatus.error,
+        'skipped' => TestStatus.skipped,
+        _ => throw FormatException('Unknown test status: "$s"'),
+      };
+}
+
+/// Cache freshness for a recorded test outcome (schema v3+).
+enum Staleness {
+  fresh,
+  stale,
+  neverRun;
+
+  static Staleness? tryParse(String? s) => switch (s) {
+        null => null,
+        'fresh' => Staleness.fresh,
+        'stale' => Staleness.stale,
+        'neverRun' => Staleness.neverRun,
+        _ => throw FormatException('Unknown staleness: "$s"'),
+      };
+}
+
+/// Aggregate state of one variant's region on the disc, applying the
+/// worst-state-wins rule: any failing/error test → [failing], else any
+/// gap → [missing], else [covered].
+enum RegionState { covered, failing, missing }
 
 /// Coverage status of one (variant, feature) cell. Naming aligns with
 /// dartrix's `CellState`.
@@ -110,6 +149,11 @@ final class TestInfo {
     required this.feature,
     required this.location,
     this.containingGroup,
+    this.status,
+    this.failureMessage,
+    this.logPath,
+    this.cachedAt,
+    this.staleness,
   });
 
   final String variant;
@@ -120,6 +164,23 @@ final class TestInfo {
   /// Null for v1 payloads or for tests not nested in any `group()`.
   final String? containingGroup;
 
+  /// Outcome of the most recent run (schema v3+). Null when the snapshot
+  /// has no recorded outcome — pre-v3 emitters or v3 emitters that have
+  /// not yet executed the test.
+  final TestStatus? status;
+
+  /// First line of the failure output, when [status] is failing or error.
+  final String? failureMessage;
+
+  /// Absolute path to the captured run log on disk.
+  final String? logPath;
+
+  /// When the cached outcome was recorded.
+  final DateTime? cachedAt;
+
+  /// Cache freshness — fresh / stale / neverRun.
+  final Staleness? staleness;
+
   factory TestInfo.fromJson(Map<String, dynamic> json) => TestInfo(
         variant: json['variant'] as String,
         feature: json['feature'] as String,
@@ -128,6 +189,14 @@ final class TestInfo {
           line: json['line'] as int,
         ),
         containingGroup: json['containingGroup'] as String?,
+        status: TestStatus.tryParse(json['status'] as String?),
+        failureMessage: json['failureMessage'] as String?,
+        logPath: json['logPath'] as String?,
+        cachedAt: switch (json['cachedAt']) {
+          final String s => DateTime.parse(s),
+          _ => null,
+        },
+        staleness: Staleness.tryParse(json['staleness'] as String?),
       );
 }
 
@@ -197,6 +266,35 @@ final class CoverageSnapshot {
 
   /// Number of (variant, feature) pairs that are required but not covered.
   int get gapCount => gaps.length;
+
+  /// Aggregate region state for one variant under the worst-state-wins
+  /// rule, plus the intensity to use for fill alpha.
+  ///
+  /// - [RegionState.failing]: intensity = failingCount / totalTests for the
+  ///   variant. Drives [AppPaint.regionFailingAlpha*] in the painter.
+  /// - [RegionState.covered] / [RegionState.missing]: intensity =
+  ///   variant.coverageRatio. Drives the standard region alpha range.
+  ({RegionState state, double intensity}) regionStateFor(
+    VariantInfo variant,
+  ) {
+    var failing = 0;
+    var total = 0;
+    for (final t in tests) {
+      if (t.variant != variant.qualifiedName) continue;
+      total++;
+      if (t.status == TestStatus.failing || t.status == TestStatus.error) {
+        failing++;
+      }
+    }
+    if (failing > 0) {
+      final intensity = total == 0 ? 1.0 : failing / total;
+      return (state: RegionState.failing, intensity: intensity);
+    }
+    if (variant.coverageRatio < 1.0) {
+      return (state: RegionState.missing, intensity: variant.coverageRatio);
+    }
+    return (state: RegionState.covered, intensity: variant.coverageRatio);
+  }
 
   /// Status of one (variant, feature) cell. Variant comes from [variants];
   /// feature is one of [features].
