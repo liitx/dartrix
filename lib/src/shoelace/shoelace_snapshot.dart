@@ -29,6 +29,15 @@ enum ShoelaceSchema {
         _ => ShoelaceSchema.unknown,
       };
 
+  /// The on-the-wire schema string zedup emits. Null for [unknown] since
+  /// it does not round-trip.
+  String? get wireValue => switch (this) {
+        ShoelaceSchema.v1      => 'zedup-shoelace/v1',
+        ShoelaceSchema.v2      => 'zedup-shoelace/v2',
+        ShoelaceSchema.v3      => 'zedup-shoelace/v3',
+        ShoelaceSchema.unknown => null,
+      };
+
   bool get supportsTestStatus => this == ShoelaceSchema.v3;
   bool get supportsScopeContext =>
       this == ShoelaceSchema.v2 || this == ShoelaceSchema.v3;
