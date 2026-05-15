@@ -10,6 +10,7 @@
 // Each domain enum declares which features it participates in.
 // The matrix derives coverage from the cross-product and surfaces gaps.
 
+export 'src/config/dartrix_config.dart';
 export 'src/types/app_type.dart';
 export 'src/types/feature_type.dart';
 export 'src/types/component_type.dart';
