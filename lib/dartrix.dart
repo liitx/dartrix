@@ -20,6 +20,7 @@ export 'src/matrix/matrix.dart';
 export 'src/renderer/matrix_renderer.dart';
 export 'src/renderer/shoelace_layout.dart'
     show ShoelaceLayout, ShoelaceNode, ShoelaceSegment, shoelaceLayoutOf;
+export 'src/shoelace/gap_cross_reference.dart';
 export 'src/shoelace/shoelace_snapshot.dart';
 export 'src/selector/selector.dart';
 export 'src/selector/test_selector.dart';
