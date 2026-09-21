@@ -1,6 +1,6 @@
 # dartrix — PARADIGMS
 
-> Version: 0.1.0 — semver. A breaking paradigm shift bumps major; a new paradigm or
+> Version: 0.2.0 — semver. A breaking paradigm shift bumps major; a new paradigm or
 > clarification bumps minor/patch. Owned workspaces track latest; external consumers pin a
 > version. Major bumps land as explicit migration PRs.
 >
@@ -91,6 +91,14 @@ precedence answer, it is a gap — open a feedback PR (see Growth) rather than g
 - Extensions map an enum to framework types (e.g. enum → nocterm `Component`), so the enum
   core stays pure and matrix-testable.
 - A generic component takes the enum: `Component.of(enumVariant)`.
+- Dependency direction is explicit and one-way. A component may depend on components below it
+  in its own workspace's layering (whatever that workspace's layering is — this does not
+  mandate a specific named-layer taxonomy like view/viewModel/repository; it mandates that
+  *some* direction exists and is not violated). A dependency running the reverse direction, or
+  between two components at the same tier that should not know about each other, is an
+  architecture violation — not a style preference, not something `/suggest` negotiates around.
+  Candidate for static enforcement via a lint once a workspace's own layering is concrete
+  enough to name (see Growth — not yet promoted to that tier, prose-only for now).
 
 ### widgetStructure
 - Content is contained in its box: `clipBehavior: Clip.hardEdge`, bounded content via
@@ -115,6 +123,19 @@ precedence answer, it is a gap — open a feedback PR (see Growth) rather than g
 ### testing
 - Matrix-driven via `AppType` / `FeatureType`. Enum-owned test groups, generic bodies, test
   names from variant identity. Adding an enum variant without coverage is a compile error.
+- One `test()` per variant, never a loop inside one `test()` body. A loop inside a single
+  `test()` collapses every variant's pass/fail into one indistinguishable result and stops at
+  the first failure, hiding every variant after it. The loop wraps `test()`; it never replaces
+  it. (Enforced in claudart's own repo via a `custom_lint` rule,
+  `enum_values_loop_in_single_test` — candidate to promote into a dartrix-owned lint package
+  once one exists, see Growth.)
+- A new test is placed by triage, not by default. Before writing one: find the test file that
+  mirrors the changed source file (`lib/foo/bar.dart` → `test/foo/bar_test.dart`); if it
+  exists, find the `group()` that already covers this feature/behavior and add the test there;
+  only add a new `group()` in that same file if none matches; only create a new test file when
+  the mirrored file genuinely does not exist yet. A new file or a new top-level test is a last
+  resort, not a first instinct — most "missing coverage" is actually "coverage that already has
+  a home you didn't look for."
 
 ---
 
