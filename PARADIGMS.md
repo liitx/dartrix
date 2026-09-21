@@ -1,6 +1,6 @@
 # dartrix — PARADIGMS
 
-> Version: 0.2.0 — semver. A breaking paradigm shift bumps major; a new paradigm or
+> Version: 0.3.0 — semver. A breaking paradigm shift bumps major; a new paradigm or
 > clarification bumps minor/patch. Owned workspaces track latest; external consumers pin a
 > version. Major bumps land as explicit migration PRs.
 >
@@ -99,6 +99,15 @@ precedence answer, it is a gap — open a feedback PR (see Growth) rather than g
   architecture violation — not a style preference, not something `/suggest` negotiates around.
   Candidate for static enforcement via a lint once a workspace's own layering is concrete
   enough to name (see Growth — not yet promoted to that tier, prose-only for now).
+- Identical right-hand sides group with `||` pattern alternation — never repeated as separate
+  cases. `caseA || caseB || caseC => sameValue`, not one case per pattern each individually
+  writing `=> sameValue`. Applies to switch expressions on enums, records, or any pattern type;
+  especially uniform-exit events (multiple states/variants that all resolve to the same
+  outcome). Guarded cases (`pattern when condition => body`) are exempt even when their body
+  matches another case's — the guard is a distinct condition, and combining would silently
+  drop it, changing behavior rather than just tidying style. (Enforced in claudart's own repo
+  via a `custom_lint` rule, `ungrouped_identical_switch_cases` — same promotion candidacy as
+  `enum_values_loop_in_single_test`, see Growth.)
 
 ### widgetStructure
 - Content is contained in its box: `clipBehavior: Clip.hardEdge`, bounded content via
