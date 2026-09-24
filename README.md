@@ -119,10 +119,9 @@ tearDownAll(() {
 **4. Read the gap output.**
 
 ```
-GAPS (3):
-  Status.published × editor
-  Status.archived  × export
-  Status.archived  × editor
+GAPS (2):
+  draft  ×  editor
+  published  ×  export
 ```
 
 Specific cells. Not "76% line coverage." Each row is a `(variant, feature)` pair you can fix.
