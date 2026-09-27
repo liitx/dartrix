@@ -32,13 +32,13 @@ enum BigType implements AppType {
 
   @override
   Set<FeatureType> get features => switch (this) {
-        BigType.a => {TestFeature.alpha},
-        BigType.b => {TestFeature.alpha},
-        BigType.c => {TestFeature.alpha},
-        BigType.d => {TestFeature.alpha},
-        BigType.e => {TestFeature.alpha},
-        BigType.f => {TestFeature.alpha},
-        BigType.g => {TestFeature.alpha},
+        BigType.a ||
+        BigType.b ||
+        BigType.c ||
+        BigType.d ||
+        BigType.e ||
+        BigType.f ||
+        BigType.g ||
         BigType.h => {TestFeature.alpha},
       };
 }

@@ -22,12 +22,9 @@ enum ShoelaceSchema {
   v3,
   unknown;
 
-  static ShoelaceSchema fromString(String? raw) => switch (raw) {
-        'zedup-shoelace/v1' => ShoelaceSchema.v1,
-        'zedup-shoelace/v2' => ShoelaceSchema.v2,
-        'zedup-shoelace/v3' => ShoelaceSchema.v3,
-        _ => ShoelaceSchema.unknown,
-      };
+  static ShoelaceSchema fromString(String? raw) =>
+      ShoelaceSchema.values.where((s) => s.wireValue == raw).firstOrNull ??
+          ShoelaceSchema.unknown;
 
   /// The on-the-wire schema string zedup emits. Null for [unknown] since
   /// it does not round-trip.

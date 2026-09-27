@@ -13,12 +13,14 @@ import '../matrix/matrix.dart';
 import '../types/app_type.dart';
 import '../types/feature_type.dart';
 
+String _enumName(Object variantOrFeature) => (variantOrFeature as Enum).name;
+
 extension _AppTypeName on AppType {
-  String get name => (this as Enum).name;
+  String get name => _enumName(this);
 }
 
 extension _FeatureTypeName on FeatureType {
-  String get name => (this as Enum).name;
+  String get name => _enumName(this);
 }
 
 class MatrixRenderer {
@@ -44,12 +46,7 @@ class MatrixRenderer {
 
     final rows = variants.map((variant) {
       final cells = features.map((feature) {
-        final symbol = switch (matrix.stateOf(variant, feature)) {
-          CellState.covered       => '✓',
-          CellState.gap           => '✗',
-          CellState.notApplicable => '·',
-        };
-        return symbol.padRight(colWidth);
+        return matrix.stateOf(variant, feature).symbol.padRight(colWidth);
       }).join();
       return variant.name.padRight(variantWidth) + cells;
     }).join('\n');

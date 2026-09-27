@@ -33,7 +33,14 @@ enum CellState {
   gap,
 
   /// Variant does not participate in this feature — not required.
-  notApplicable,
+  notApplicable;
+
+  /// The single-character glyph used in rendered matrix output.
+  String get symbol => switch (this) {
+        covered => '✓',
+        gap => '✗',
+        notApplicable => '·',
+      };
 }
 
 /// Derives and tracks coverage for a set of domain enum variants
