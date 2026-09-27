@@ -1,6 +1,6 @@
 # dartrix — PARADIGMS
 
-> Version: 0.3.0 — semver. A breaking paradigm shift bumps major; a new paradigm or
+> Version: 0.4.0 — semver. A breaking paradigm shift bumps major; a new paradigm or
 > clarification bumps minor/patch. Owned workspaces track latest; external consumers pin a
 > version. Major bumps land as explicit migration PRs.
 >
@@ -145,6 +145,17 @@ precedence answer, it is a gap — open a feedback PR (see Growth) rather than g
   the mirrored file genuinely does not exist yet. A new file or a new top-level test is a last
   resort, not a first instinct — most "missing coverage" is actually "coverage that already has
   a home you didn't look for."
+
+### comments
+- A comment describing forward-looking or evolving status (a plan, a "will do X later" note,
+  an open question) is appended to when that status changes, never deleted and rewritten in
+  place. The original line stays; a dated `Update (YYYY-MM-DD): ...` line records what
+  changed and why. Same delta-preservation instinct as PLAN.md's GitHub archive convention
+  and skills.md's accumulation model — the comment's own history stays legible without
+  needing `git blame` to reconstruct it. Applies at `consider` posture — even a light-touch
+  edit that happens to update a status comment follows this, not just full refactor sessions.
+  Does not apply to correcting a comment that was simply wrong when written (no real history
+  to preserve there — that's a fix, not a status update).
 
 ---
 
