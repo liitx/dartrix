@@ -1,0 +1,12 @@
+{
+  "summaryText": "Six phases — current ship is schema v3 + visual polish",
+  "footerLine": "> **Deep dive:** [The 6-phase roadmap](PLAN.md#the-6-phase-roadmap) has scope, deliverables, and exit criteria per phase.",
+  "rows": [
+    { "phase": "1", "scope": "Gap cross-reference (shoelace)", "status": "shipped" },
+    { "phase": "2", "scope": "Test status integration (cross-repo, schema v3)", "status": "shipped (consumer side)" },
+    { "phase": "3", "scope": "`[t]` TUI test screen + template system (zedup-side)", "status": "planned" },
+    { "phase": "4", "scope": "Test runner cache + diff-aware re-runs (zedup-side)", "status": "planned" },
+    { "phase": "5", "scope": "Design subagent (claudart-side)", "status": "deferred" },
+    { "phase": "6", "scope": "Cleanup audit (post-merge, all repos)", "status": "planned" }
+  ]
+}

@@ -334,6 +334,7 @@ Each variant declares its own participation. The matrix unions them all.
 
 ## Roadmap
 
+<!-- claudart:link:roadmap -->
 <details>
 <summary><strong>Six phases — current ship is schema v3 + visual polish</strong></summary>
 
