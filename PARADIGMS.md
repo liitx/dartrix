@@ -1,6 +1,6 @@
 # dartrix — PARADIGMS
 
-> Version: 0.4.0 — semver. A breaking paradigm shift bumps major; a new paradigm or
+> Version: 0.5.0 — semver. A breaking paradigm shift bumps major; a new paradigm or
 > clarification bumps minor/patch. Owned workspaces track latest; external consumers pin a
 > version. Major bumps land as explicit migration PRs.
 >
@@ -88,6 +88,15 @@ precedence answer, it is a gap — open a feedback PR (see Growth) rather than g
 - Enhanced enums are the spine. One variant per thing that exists in the domain.
 - Shared attributes are enum fields, set through named constructors that encode the shape
   variance (e.g. `.flex` vs `.fixed`). Derived attributes are getters.
+- Why not sealed classes instead: a real, named alternative, not an oversight. VGV's own
+  published guidance (engineering.verygood.ventures) picks sealed classes specifically when
+  each state's data should be isolated with nothing carried forward — real benefit, zero
+  nullable/unused fields per variant. dartrix picks enums unconditionally for anything
+  participating in the `AppType`/`FeatureType` coverage matrix, because sealed class instances
+  aren't enumerable (no `.values`), which structurally cannot support
+  `.cover(variant, feature)`/`.gaps()`. The accepted cost is shared field slots across variants
+  whose shapes diverge. Sealed classes remain fine outside the matrix-tracked domain spine —
+  this is "enums for matrix-tracked domain variants," not "never sealed classes anywhere."
 - Extensions map an enum to framework types (e.g. enum → nocterm `Component`), so the enum
   core stays pure and matrix-testable.
 - A generic component takes the enum: `Component.of(enumVariant)`.
