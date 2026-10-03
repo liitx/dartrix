@@ -137,6 +137,8 @@ Specific cells. Not "76% line coverage." Each row is a `(variant, feature)` pair
 
 The Flutter web app under [`shoelace/`](shoelace/) consumes the JSON snapshot any consumer (zedup, your app) emits. It renders the matrix as a fractal disc. Click a region → side panel drills into per-variant detail.
 
+> **Fresh clone:** `shoelace/` is a separate Flutter sub-project with its own `pubspec.yaml`/`pubspec.lock` — a root-level `dart analyze`/`dart pub get` does not resolve its dependencies. Run `flutter pub get` inside `shoelace/` once before analyzing or running it (confirmed on a real fresh clone: root `dart analyze` reported 653 issues, all inside `shoelace/`, until this was done — the dartrix package itself was already clean).
+
 ```mermaid
 flowchart LR
   Z[consumer<br/>scanner]:::p -->|writes v3 JSON| J[(coverage.json<br/>schema v1, v2, v3)]:::a
