@@ -22,6 +22,21 @@ void main() {
           equals(ShoelaceSchema.unknown));
     });
 
+    // Schema v2 introduced the scope fields and v3 is additive on v2 (CHANGELOG,
+    // "Schema v2 — drilldown context"), so v1 and an unrecognized schema do not
+    // carry them. One test per variant: a failure names the schema.
+    const scopeContextBySchema = {
+      ShoelaceSchema.v1: false,
+      ShoelaceSchema.v2: true,
+      ShoelaceSchema.v3: true,
+      ShoelaceSchema.unknown: false,
+    };
+    for (final schema in ShoelaceSchema.values) {
+      test('${schema.name} supportsScopeContext is ${scopeContextBySchema[schema]}', () {
+        expect(schema.supportsScopeContext, equals(scopeContextBySchema[schema]));
+      });
+    }
+
     test('v3 supportsTestStatus', () {
       expect(ShoelaceSchema.v3.supportsTestStatus, isTrue);
       expect(ShoelaceSchema.v2.supportsTestStatus, isFalse);
@@ -46,6 +61,11 @@ void main() {
       expect(p.failureMessage, equals('expected feat got fix'));
       expect(p.logPath, equals('/tmp/test-log.txt'));
       expect(p.failureType, equals('gitCheckoutFailed'));
+    });
+
+    test('reads a record with no line as line 0', () {
+      final point = SnapshotTestPoint.fromJson({'variant': 'X.a', 'feature': 'f'});
+      expect(point.line, equals(0));
     });
 
     test('defaults v3 fields when reading v2-style records', () {
@@ -131,6 +151,48 @@ void main() {
           throwsA(isA<FormatException>()));
     });
 
+    test('reads a variant entry with its type, color, features and ratio', () {
+      final snap = ShoelaceSnapshot.parse(jsonEncode({
+        'schema': 'zedup-shoelace/v3',
+        'variants': [
+          {
+            'name': 'WorkStatus.wip',
+            'type': 'WorkStatus',
+            'color': '#aabbcc',
+            'features': ['dashboard', 'promote'],
+            'coverageRatio': 0.5,
+          },
+        ],
+      }));
+      final variant = snap.variants.single;
+      expect(variant.name, equals('WorkStatus.wip'));
+      expect(variant.type, equals('WorkStatus'));
+      expect(variant.color, equals('#aabbcc'));
+      expect(variant.features, equals(['dashboard', 'promote']));
+      expect(variant.coverageRatio, equals(0.5));
+    });
+
+    test('reads a bare variant entry with empty text, no features and ratio 0', () {
+      final snap = ShoelaceSnapshot.parse(jsonEncode({
+        'schema': 'zedup-shoelace/v3',
+        'variants': [<String, dynamic>{}],
+      }));
+      final variant = snap.variants.single;
+      expect(variant.name, isEmpty);
+      expect(variant.features, isEmpty);
+      expect(variant.coverageRatio, equals(0.0));
+    });
+
+    test('reads a usage with no line as line 0', () {
+      final snap = ShoelaceSnapshot.parse(jsonEncode({
+        'schema': 'zedup-shoelace/v3',
+        'usages': [
+          {'variant': 'X.a', 'file': 'x.dart'},
+        ],
+      }));
+      expect(snap.usages.single.line, equals(0));
+    });
+
     test('reads v2 snapshot without throwing — defaults v3 fields', () {
       final json = jsonEncode({
         'schema': 'zedup-shoelace/v2',
@@ -171,6 +233,18 @@ void main() {
       });
       final snap = ShoelaceSnapshot.parse(json);
       expect(snap.aggregateStateFor('X.a', 'f'), equals('failing'));
+    });
+
+    test('ignores a failing test that matches only the variant or only the feature', () {
+      final json = jsonEncode({
+        'schema': 'zedup-shoelace/v3',
+        'tests': [
+          {'variant': 'X.a', 'feature': 'other', 'file': 'x.dart', 'line': 1, 'status': 'failing'},
+          {'variant': 'X.b', 'feature': 'f', 'file': 'y.dart', 'line': 2, 'status': 'failing'},
+        ],
+      });
+      final snap = ShoelaceSnapshot.parse(json);
+      expect(snap.aggregateStateFor('X.a', 'f'), equals('missing'));
     });
 
     test('returns passing when all tests for the pair pass', () {
