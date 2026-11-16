@@ -7,6 +7,13 @@ Each entry maps 1:1 to a GitHub issue and a package version bump.
 
 ## [Unreleased]
 
+### Added — candidacy ledger (under `lib/src/candidacy/`)
+
+- `CandidateStatus` (candidate, underTest, proven, bounded, refuted, axiom) with the legal moves and each move's requirements on the enum.
+- `ProofAudit`: the Phase 0 audit of a proof's mocks; a proof on mocks that failed the audit cannot be called bounded or proven.
+- `CandidateLedger`: append-only, no file I/O, refuses an illegal move, a partial proof called proven, and an axiom without a justified threshold; JSON lines in and out.
+- Confidence factors and weights (sum 1), the trend of a candidate (stalled and dropped are flagged), and boundary search (`findBoundary`, `firstNonMonotone`).
+
 ### Added — shoelace Flutter visualizer (under `shoelace/`)
 
 **Per-vertex region geometry, hit testing, drilldown panel.**
