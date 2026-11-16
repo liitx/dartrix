@@ -1,6 +1,6 @@
 # dartrix — PARADIGMS
 
-> Version: 0.5.0 — semver. A breaking paradigm shift bumps major; a new paradigm or
+> Version: 0.6.0 — semver. A breaking paradigm shift bumps major; a new paradigm or
 > clarification bumps minor/patch. Owned workspaces track latest; external consumers pin a
 > version. Major bumps land as explicit migration PRs.
 >
@@ -82,6 +82,27 @@ precedence answer, it is a gap — open a feedback PR (see Growth) rather than g
 
 ---
 
+## Dependency policy — working beats lean, until usage is known
+
+External dependencies are allowed freely while a feature is still being proven out. Pulling
+in a working, well-scoped library to get something real running is not a violation of
+dartrix's "no redundancy" mission — reimplementing a solved problem *before* knowing exactly
+which slice of it you need would be the actual redundancy.
+
+Absorption into dartrix is a second, later phase, driven by measurement, not guessed upfront:
+once real usage of an external dependency is empirically known (which functions, which code
+paths, which config shapes actually get exercised), the used slice is reimplemented natively
+in dartrix and the dependency is dropped — recorded with the same `superseded_by` discipline
+this file already uses for retired paradigms. Never pre-absorb on a guess about what might be
+needed; that produces exactly the kind of speculative, unused surface this file's Growth
+section already rejects for paradigms themselves.
+
+First tracked case: claudart added `mutation_test` (pub.dev) as a real dev dependency to get
+mutation-coverage checking working now. Its own footprint is three small dependencies
+(`args`, `path`, `xml`), two of which claudart already depends on. Absorbing it into dartrix
+is explicitly deferred, not scoped, until which of its features claudart actually exercises is
+known from real use — not decided in advance.
+
 ## The dimensions
 
 ### architecture
@@ -117,6 +138,21 @@ precedence answer, it is a gap — open a feedback PR (see Growth) rather than g
   drop it, changing behavior rather than just tidying style. (Enforced in claudart's own repo
   via a `custom_lint` rule, `ungrouped_identical_switch_cases` — same promotion candidacy as
   `enum_values_loop_in_single_test`, see Growth.)
+- An enum classifies; a sealed class carries per-instance payload. These are not competing
+  choices for the same job — they pair. An enum (`ArtifactState`: `fresh`, `sourceChanged`,
+  `outputHandEdited`, ...) stays matrix-tracked and enumerable; a sealed class
+  (`ArtifactOutcome`: `Written(path)` / `Unchanged` / `SkippedHandEdited(path)` / `Failed(e)`)
+  carries the data specific to one outcome, with nothing forced onto the others. Confirmed
+  real in claudart's own `PipelineEvent`/`AgentResponse`/`StepRoute` (already correctly
+  sealed, outside the matrix spine) paired against `HandoffStatus`/`GitConfigKey` (correctly
+  enums, inside it).
+- Mixins are admitted only when concrete shared behavior that needs `this` must cross at
+  least two types that cannot share a superclass, and a free function taking the shared
+  interface genuinely will not do. Zero mixins existing in a codebase is not itself a gap —
+  confirmed by auditing claudart's `lib/` directly: the one real candidate (shared
+  regenerate-on-staleness logic across two independent artifact enums) is better served by a
+  plain free function over the shared interface. Reach for the free function first; a mixin is
+  the fallback once `this`-bound behavior genuinely cannot be expressed that way.
 
 ### widgetStructure
 - Content is contained in its box: `clipBehavior: Clip.hardEdge`, bounded content via
@@ -154,6 +190,35 @@ precedence answer, it is a gap — open a feedback PR (see Growth) rather than g
   the mirrored file genuinely does not exist yet. A new file or a new top-level test is a last
   resort, not a first instinct — most "missing coverage" is actually "coverage that already has
   a home you didn't look for."
+- A value shared between `lib/` and a test plays exactly one of four roles, and that role
+  decides whether the test may read it from the implementation:
+  1. **Wiring/lookup** — *how* a test reaches something (a key, a subprocess shape, a path).
+     Safe to share via an enum getter. Example: `GitConfigKey.userName.gitKey`, read by both
+     the real `git config` call and the test's fake `ProcessRunner` call-matcher.
+  2. **Fixture input** — the data fed in. Lives only in `test/` (a test-only extension or
+     helper), never in `lib/`.
+  3. **External contract literal** — the shape an outside system (a CLI tool, a file format, a
+     JSON key) actually requires. Written once as an independent literal in the test, never
+     re-derived from the code under test.
+  4. **Behavior oracle** — the expected output. Computed from the fixture input plus the
+     specified behavior, never recomputed by calling the code under test or reading its own
+     constants.
+
+  Sharing role 1 is fine — it is *how* you look something up. Sharing roles 3 or 4 from the
+  implementation is never fine — it is *what* you are checking, and a test that reads its own
+  oracle from the code under test is a tautological test: if that code is wrong, both sides of
+  the assertion are wrong the same way, and the test cannot fail. Confirmed real, not
+  hypothetical: an interrupted `mutation_test` run once left a claudart constant
+  (`gitEnvClearArgs`) mutated to `[]` directly on disk, and the test asserting the subprocess
+  args stayed green, because its expected value was read from that same mutated constant.
+  Fixed by pinning the expected args as an independent literal (role 3).
+  Line coverage cannot detect this violation — a tautological test still executes every line.
+  Mutation testing scoped to the changed file can: a surviving mutant on a contract-literal or
+  oracle value is exactly this failure mode. Consistent with VGV's own stated testing
+  principle ("test behavior, not properties," engineering.verygood.ventures) and Flutter's own
+  convention of sharing lookup keys (the Robot/Page Object pattern) while keeping oracles
+  (golden files, literals) on a separate path from the implementation.
+  Posture: `consider` on every task; `enforce` for `implement` intent touching `test/`.
 
 ### comments
 - A comment describing forward-looking or evolving status (a plan, a "will do X later" note,

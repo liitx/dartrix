@@ -17,6 +17,17 @@ import 'package:test/test.dart';
 import '../stubs.dart';
 
 /// Eight-variant fixture for testing larger lace paths.
+/// A variant that participates in no feature at all.
+enum NoFeatureType implements AppType {
+  solo;
+
+  @override
+  String get description => name;
+
+  @override
+  Set<FeatureType> get features => const {};
+}
+
 enum BigType implements AppType {
   a,
   b,
@@ -141,6 +152,12 @@ void main() {
 
   // ── Coverage ratio ──────────────────────────────────────────────────────────
   group('coverage ratio', () {
+    test('a variant with no participating features → vacuously ratio 1.0', () {
+      final m = Dartrix(axes: [NoFeatureType.values], features: TestFeature.values);
+      final layout = shoelaceLayoutOf(m, [NoFeatureType.solo]);
+      expect(layout.nodes.single.coverageRatio, equals(1.0));
+    });
+
     test('rover with 0 features covered → ratio 0.0', () {
       final m = Dartrix(axes: [TestType.values], features: TestFeature.values);
       final layout = shoelaceLayoutOf(m, [TestType.rover]);
