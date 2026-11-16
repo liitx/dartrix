@@ -10,9 +10,11 @@
 // Each domain enum declares which features it participates in.
 // The matrix derives coverage from the cross-product and surfaces gaps.
 
+export 'src/candidacy/boundary_search.dart';
 export 'src/candidacy/candidate_ledger.dart';
 export 'src/candidacy/candidate_ledger_entry.dart';
 export 'src/candidacy/candidate_status.dart';
+export 'src/candidacy/confidence.dart';
 export 'src/candidacy/proof_audit.dart';
 export 'src/config/dartrix_config.dart';
 export 'src/types/app_type.dart';

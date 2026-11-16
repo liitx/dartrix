@@ -8,6 +8,10 @@ import 'package:dartrix/dartrix.dart';
 /// The variants the stub candidate's spec names.
 const stubVariantsInSpec = ['alpha', 'beta'];
 
+/// Every factor at its best.
+const fullFactors =
+    ConfidenceFactors(boundary: 1, topologyReach: 1, impact: 1);
+
 /// A passed Phase 0 audit: every check passed.
 ProofAudit passedAudit() => ProofAudit({
       for (final check in ProofAuditCheck.values) check: ProofAuditOutcome.passed,
@@ -21,8 +25,9 @@ CandidateLedgerEntry validEntry(
   ProofAudit? audit,
   List<String> variantsCovered = stubVariantsInSpec,
   String justification = 'the proof held',
-  String? threshold,
+  double? threshold,
   String? boundary,
+  ConfidenceFactors? factors,
 }) =>
     CandidateLedgerEntry(
       candidateId: candidateId,
@@ -35,9 +40,8 @@ CandidateLedgerEntry validEntry(
       variantsCovered: variantsCovered,
       audit: audit ?? passedAudit(),
       boundary: boundary,
-      threshold: status == CandidateStatus.axiom
-          ? (threshold ?? 'every audit check passed')
-          : threshold,
+      threshold: status == CandidateStatus.axiom ? (threshold ?? 0.8) : threshold,
+      factors: factors ?? (status.requiresFactors ? fullFactors : null),
     );
 
 /// The moves a candidate may make, written out here and not read from the enum,
@@ -45,6 +49,7 @@ CandidateLedgerEntry validEntry(
 const expectedLegalMoves = <CandidateStatus, Set<CandidateStatus>>{
   CandidateStatus.candidate: {CandidateStatus.underTest},
   CandidateStatus.underTest: {
+    CandidateStatus.underTest,
     CandidateStatus.proven,
     CandidateStatus.bounded,
     CandidateStatus.refuted,

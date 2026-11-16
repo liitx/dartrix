@@ -9,6 +9,7 @@ import 'dart:convert';
 
 import 'candidate_ledger_entry.dart';
 import 'candidate_status.dart';
+import 'confidence.dart';
 
 /// What reading JSON lines produced: the ledger of the accepted lines, and the
 /// refusal for each line that was not accepted.
@@ -19,7 +20,32 @@ typedef LedgerParse = ({
 
 /// An append-only record of candidates, each moving through [CandidateStatus].
 class CandidateLedger {
+  /// An empty ledger that computes confidence under [weights].
+  CandidateLedger({this.weights = ConfidenceWeights.initial});
+
+  /// The weights confidence is computed with.
+  final ConfidenceWeights weights;
+
   final List<CandidateLedgerEntry> _entries = [];
+
+  /// The confidence of each of [candidateId]'s entries that carries factors,
+  /// oldest first.
+  List<double> confidenceSeries(String candidateId) => [
+        for (final entry in _entries)
+          if (entry.candidateId == candidateId)
+            if (entry.confidenceUnder(weights) case final confidence?) confidence,
+      ];
+
+  /// Where [candidateId]'s confidence is heading.
+  ConfidenceTrend trendOf(String candidateId) =>
+      ConfidenceTrend.of(confidenceSeries(candidateId));
+
+  /// The candidates whose confidence has stalled or dropped, in the order they
+  /// first appear.
+  List<String> get flagged => [
+        for (final id in {for (final e in _entries) e.candidateId})
+          if (trendOf(id).isFlagged) id,
+      ];
 
   /// Every accepted entry, oldest first. It cannot be changed.
   List<CandidateLedgerEntry> get entries => UnmodifiableListView(_entries);
@@ -55,12 +81,24 @@ class CandidateLedger {
         !entry.variantsInSpec.every(entry.variantsCovered.contains)) {
       return LedgerRefusal.variantsMissing;
     }
+    final factors = entry.factors;
+    if (entry.status.requiresFactors && factors == null) {
+      return LedgerRefusal.factorsMissing;
+    }
+    if (factors != null && !factors.isInRange) {
+      return LedgerRefusal.factorOutOfRange;
+    }
     if (entry.status.requiresJustifiedThreshold) {
       if (entry.justification.trim().isEmpty) {
         return LedgerRefusal.axiomWithoutJustification;
       }
-      if (entry.threshold == null || entry.threshold!.trim().isEmpty) {
-        return LedgerRefusal.axiomWithoutThreshold;
+      final threshold = entry.threshold;
+      if (threshold == null) return LedgerRefusal.axiomWithoutThreshold;
+      if (threshold < 0 || threshold > 1) {
+        return LedgerRefusal.thresholdOutOfRange;
+      }
+      if (entry.confidenceUnder(weights)! < threshold) {
+        return LedgerRefusal.confidenceBelowThreshold;
       }
     }
     return null;
@@ -82,8 +120,11 @@ class CandidateLedger {
 
   /// Reads JSON lines through the same rules as [append]. Blank lines are
   /// skipped; a refused line is reported with its 1-based number.
-  static LedgerParse parse(String text) {
-    final ledger = CandidateLedger();
+  static LedgerParse parse(
+    String text, {
+    ConfidenceWeights weights = ConfidenceWeights.initial,
+  }) {
+    final ledger = CandidateLedger(weights: weights);
     final refusals = <({int line, LedgerRefusal refusal})>[];
     final lines = const LineSplitter().convert(text);
     for (var index = 0; index < lines.length; index++) {

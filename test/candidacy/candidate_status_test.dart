@@ -49,6 +49,21 @@ void main() {
       }
     });
 
+    group('requiresFactors', () {
+      const expected = {
+        CandidateStatus.proven,
+        CandidateStatus.bounded,
+        CandidateStatus.axiom,
+      };
+      for (final status in CandidateStatus.values) {
+        test(
+            '${status.name} ${expected.contains(status) ? 'requires' : 'does not require'} confidence factors',
+            () {
+          expect(status.requiresFactors, expected.contains(status));
+        });
+      }
+    });
+
     group('requiresEvidence', () {
       for (final status in CandidateStatus.values) {
         final expected = status != CandidateStatus.candidate;

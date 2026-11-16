@@ -138,9 +138,165 @@ void main() {
             variantsInSpec: stubVariantsInSpec,
             variantsCovered: stubVariantsInSpec,
             audit: passedAudit(),
+            factors: fullFactors,
           )),
           LedgerRefusal.axiomWithoutThreshold,
         );
+      });
+    });
+
+    group('the confidence factors', () {
+      for (final target in [
+        CandidateStatus.proven,
+        CandidateStatus.bounded,
+      ]) {
+        test('${target.name} without factors is refused as factorsMissing', () {
+          expect(
+            ledgerAt(CandidateStatus.underTest).append(CandidateLedgerEntry(
+              candidateId: 'stub',
+              status: target,
+              specReference: 'docs/stub.md, section 1',
+              mockDatasetVersion: 'mock-1',
+              evidence: const ['e'],
+              justification: 'j',
+              variantsInSpec: stubVariantsInSpec,
+              variantsCovered: stubVariantsInSpec,
+              audit: passedAudit(),
+            )),
+            LedgerRefusal.factorsMissing,
+          );
+        });
+      }
+
+      for (final field in FactorField.values) {
+        for (final value in [-0.1, 1.1]) {
+          test('$value for ${field.name} is refused as factorOutOfRange', () {
+            final factors = ConfidenceFactors(
+              boundary: field == FactorField.boundary ? value : 1,
+              topologyReach: field == FactorField.topologyReach ? value : 1,
+              impact: field == FactorField.impact ? value : 1,
+            );
+            expect(
+              ledgerAt(CandidateStatus.underTest)
+                  .append(validEntry(CandidateStatus.underTest, factors: factors)),
+              LedgerRefusal.factorOutOfRange,
+            );
+          });
+        }
+      }
+
+      test('a re-test at underTest is accepted', () {
+        expect(
+          ledgerAt(CandidateStatus.underTest)
+              .append(validEntry(CandidateStatus.underTest)),
+          isNull,
+        );
+      });
+    });
+
+    group('an axiom threshold', () {
+      for (final threshold in [-0.1, 1.1]) {
+        test('$threshold is refused as thresholdOutOfRange', () {
+          expect(
+            ledgerAt(CandidateStatus.proven)
+                .append(validEntry(CandidateStatus.axiom, threshold: threshold)),
+            LedgerRefusal.thresholdOutOfRange,
+          );
+        });
+      }
+
+      test('0 is allowed', () {
+        expect(
+          ledgerAt(CandidateStatus.proven)
+              .append(validEntry(CandidateStatus.axiom, threshold: 0)),
+          isNull,
+        );
+      });
+
+      test('1 is allowed when the confidence is 1', () {
+        expect(
+          ledgerAt(CandidateStatus.proven)
+              .append(validEntry(CandidateStatus.axiom, threshold: 1)),
+          isNull,
+        );
+      });
+
+      test('above the entry confidence is refused as confidenceBelowThreshold', () {
+        const lowFactors =
+            ConfidenceFactors(boundary: 0, topologyReach: 0, impact: 0);
+        // coverage 1 -> 0.4 under the initial weights
+        expect(
+          ledgerAt(CandidateStatus.proven).append(validEntry(
+              CandidateStatus.axiom, factors: lowFactors, threshold: 0.5)),
+          LedgerRefusal.confidenceBelowThreshold,
+        );
+      });
+
+      test('equal to the entry confidence is accepted', () {
+        const lowFactors =
+            ConfidenceFactors(boundary: 0, topologyReach: 0, impact: 0);
+        expect(
+          ledgerAt(CandidateStatus.proven).append(validEntry(
+              CandidateStatus.axiom, factors: lowFactors, threshold: 0.4)),
+          isNull,
+        );
+      });
+    });
+
+    group('the trend of a candidate', () {
+      CandidateLedger withSeries(List<double> series) {
+        final ledger = ledgerAt(CandidateStatus.candidate);
+        for (final value in series) {
+          ledger.append(validEntry(
+            CandidateStatus.underTest,
+            factors: ConfidenceFactors(boundary: value, topologyReach: 0, impact: 0),
+          ));
+        }
+        return ledger;
+      }
+
+      test('one measured entry is not enough history', () {
+        expect(withSeries([0.5]).trendOf('stub'), ConfidenceTrend.notEnoughHistory);
+      });
+
+      test('a higher last entry is rising', () {
+        expect(withSeries([0.2, 0.6]).trendOf('stub'), ConfidenceTrend.rising);
+      });
+
+      test('an equal last entry is stalled', () {
+        expect(withSeries([0.2, 0.6, 0.6]).trendOf('stub'), ConfidenceTrend.stalled);
+      });
+
+      test('a stalled candidate is flagged', () {
+        expect(withSeries([0.2, 0.6, 0.6]).flagged, ['stub']);
+      });
+
+      test('a lower last entry is dropped', () {
+        expect(withSeries([0.6, 0.2]).trendOf('stub'), ConfidenceTrend.dropped);
+      });
+
+      test('a dropped candidate is flagged', () {
+        expect(withSeries([0.6, 0.2]).flagged, ['stub']);
+      });
+
+      test('a rising candidate is not flagged', () {
+        expect(withSeries([0.2, 0.6]).flagged, isEmpty);
+      });
+
+      test('an entry without factors is not in the series', () {
+        final ledger = withSeries([0.2])..append(validEntry(CandidateStatus.underTest));
+        expect(ledger.confidenceSeries('stub').length, 1);
+      });
+
+      test('the series follows the ledger weights', () {
+        final ledger = CandidateLedger(
+          weights: ConfidenceWeights(
+              coverage: 0, boundary: 1, topologyReach: 0, impact: 0),
+        )
+          ..append(validEntry(CandidateStatus.candidate))
+          ..append(validEntry(CandidateStatus.underTest,
+              factors: const ConfidenceFactors(boundary: 0.3, topologyReach: 1, impact: 1)));
+        expect(ledger.confidenceSeries('stub'), [0.3]);
       });
     });
 

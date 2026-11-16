@@ -3,6 +3,7 @@
 import 'dart:convert';
 
 import 'candidate_status.dart';
+import 'confidence.dart';
 import 'proof_audit.dart';
 
 /// Why the ledger refuses an entry.
@@ -30,6 +31,18 @@ enum LedgerRefusal {
 
   /// An axiom that states no threshold.
   axiomWithoutThreshold,
+
+  /// The status needs the confidence factors and the entry has none.
+  factorsMissing,
+
+  /// A confidence factor is not between 0 and 1.
+  factorOutOfRange,
+
+  /// An axiom's threshold is not between 0 and 1.
+  thresholdOutOfRange,
+
+  /// An axiom whose own confidence is below the threshold it states.
+  confidenceBelowThreshold,
 
   /// The line names a status that does not exist.
   unknownStatus,
@@ -71,8 +84,11 @@ enum LedgerField {
   /// The highest complexity at which the candidate still held.
   boundary(isRequired: false),
 
-  /// The threshold an axiom was promoted above.
-  threshold(isRequired: false);
+  /// The confidence an axiom had to reach, between 0 and 1.
+  threshold(isRequired: false),
+
+  /// The measured confidence factors.
+  factors(isRequired: false);
 
   const LedgerField({required this.isRequired});
 
@@ -95,6 +111,7 @@ class CandidateLedgerEntry {
     required this.audit,
     this.boundary,
     this.threshold,
+    this.factors,
   })  : evidence = List.unmodifiable(evidence),
         variantsInSpec = List.unmodifiable(variantsInSpec),
         variantsCovered = List.unmodifiable(variantsCovered);
@@ -129,8 +146,22 @@ class CandidateLedgerEntry {
   /// The highest complexity at which the candidate still held, if measured.
   final String? boundary;
 
-  /// The threshold an axiom was promoted above.
-  final String? threshold;
+  /// The confidence an axiom had to reach, between 0 and 1.
+  final double? threshold;
+
+  /// The measured confidence factors; the variant coverage is derived.
+  final ConfidenceFactors? factors;
+
+  /// The confidence under [weights], or null if the entry has no factors.
+  double? confidenceUnder(ConfidenceWeights weights) {
+    final measured = factors;
+    return measured == null
+        ? null
+        : weights.confidenceOf(
+            measured,
+            coverage: variantCoverageOf(variantsInSpec, variantsCovered),
+          );
+  }
 
   /// The entry as a JSON object, optional fields left out when absent.
   Map<String, Object?> toJson() => {
@@ -145,6 +176,7 @@ class CandidateLedgerEntry {
         LedgerField.audit.name: audit.toJson(),
         if (boundary != null) LedgerField.boundary.name: boundary,
         if (threshold != null) LedgerField.threshold.name: threshold,
+        if (factors != null) LedgerField.factors.name: factors!.toJson(),
       };
 
   /// Reads [json]: the entry, or the reason it is not one. Nothing is
@@ -177,8 +209,15 @@ class CandidateLedgerEntry {
     final audit = auditJson is Map<String, Object?>
         ? ProofAudit.tryFromJson(auditJson)
         : null;
-    final optionalTypesHold = [LedgerField.boundary, LedgerField.threshold]
-        .every((f) => json[f.name] == null || json[f.name] is String);
+    final thresholdJson = json[LedgerField.threshold.name];
+    final factorsJson = json[LedgerField.factors.name];
+    final factors = factorsJson is Map<String, Object?>
+        ? ConfidenceFactors.tryFromJson(factorsJson)
+        : null;
+    final optionalTypesHold = (json[LedgerField.boundary.name] == null ||
+            json[LedgerField.boundary.name] is String) &&
+        (thresholdJson == null || thresholdJson is num) &&
+        (factorsJson == null || factors != null);
     if (candidateId == null ||
         statusName == null ||
         specReference == null ||
@@ -207,7 +246,8 @@ class CandidateLedgerEntry {
         variantsCovered: variantsCovered,
         audit: audit,
         boundary: text(LedgerField.boundary),
-        threshold: text(LedgerField.threshold),
+        threshold: (thresholdJson as num?)?.toDouble(),
+        factors: factors,
       ),
       refusal: null,
     );

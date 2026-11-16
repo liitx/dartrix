@@ -10,7 +10,8 @@ enum CandidateStatus {
   /// Stated as one falsifiable sentence; nothing has been run.
   candidate,
 
-  /// A proof is being run on it.
+  /// A proof is being run on it; each re-run, as the code or the corpus
+  /// changes, is another entry at this status.
   underTest,
 
   /// Held for every variant its spec names, on mocks whose audit passed.
@@ -29,7 +30,7 @@ enum CandidateStatus {
   /// status fails to compile until its moves are decided.
   Set<CandidateStatus> get legalNext => switch (this) {
         candidate => {underTest},
-        underTest => {proven, bounded, refuted},
+        underTest => {underTest, proven, bounded, refuted},
         proven => {axiom},
         bounded || refuted || axiom => const {},
       };
@@ -48,6 +49,9 @@ enum CandidateStatus {
 
   /// Whether the entry must cite evidence.
   bool get requiresEvidence => this != candidate;
+
+  /// Whether the entry must carry the factors its confidence is computed from.
+  bool get requiresFactors => this == proven || this == bounded || this == axiom;
 
   /// Whether the entry must carry a justification and the threshold it states.
   bool get requiresJustifiedThreshold => this == axiom;
