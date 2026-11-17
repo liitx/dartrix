@@ -144,3 +144,22 @@ Map<VerifyStep, StepOutcome> outcomesInOrder(
   }
   return outcomes;
 }
+
+/// Whether a branch carries everything origin's main has.
+enum MainAlignment {
+  /// main is inside the branch: nothing to merge first.
+  aligned(canPush: true),
+
+  /// main has commits the branch lacks: merge or rebase it before pushing, or
+  /// the PR and the proof were made on a base that no longer exists.
+  behind(canPush: false);
+
+  const MainAlignment({required this.canPush});
+
+  /// Whether the branch may be pushed as far as main is concerned.
+  final bool canPush;
+}
+
+/// The alignment given whether origin's main is an ancestor of the branch.
+MainAlignment alignmentOf({required bool mainIsAncestor}) =>
+    mainIsAncestor ? MainAlignment.aligned : MainAlignment.behind;

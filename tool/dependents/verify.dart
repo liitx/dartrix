@@ -55,8 +55,21 @@ Future<Map<VerifyStep, StepOutcome>> _verify(Dependent dependent) async {
   return outcomesInOrder(passed);
 }
 
+/// Fetches, then asks git whether origin's main is inside this branch.
+Future<MainAlignment> _alignment() async {
+  await Process.run('git', ['fetch', '-q', 'origin', 'main']);
+  final result = await Process.run(
+    'git',
+    ['merge-base', '--is-ancestor', 'origin/main', 'HEAD'],
+  );
+  return alignmentOf(mainIsAncestor: result.exitCode == 0);
+}
+
 Future<void> main() async {
-  var allReady = true;
+  final alignment = await _alignment();
+  stdout.writeln('main: ${alignment.name}'
+      '${alignment.canPush ? '' : ': merge origin/main into this branch first'}');
+  var allReady = alignment.canPush;
   for (final dependent in Dependent.values) {
     if (!Directory('../${dependent.directoryName}').existsSync()) {
       stdout.writeln('${dependent.name}: checkout not found, check by hand');

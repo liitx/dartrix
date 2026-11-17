@@ -9,7 +9,7 @@ Each entry maps 1:1 to a GitHub issue and a package version bump.
 
 ### Added — dependents (`lib/src/dependents/`, `tool/dependents/report.dart`)
 
-- `Dependent` (claudart, zedup), `PinState` (current, behind, floating), `pinnedRefIn`, `pinStateOf`, and `renderDependentsReport`: for dartrix's current commit, which dependents pin another commit or none and need their own PR. `VerifyStep` (deprecations, analyze, test, in that order) and `tool/dependents/verify.dart`: each dependent is put through them in a scratch copy against the local dartrix, and dartrix is ready to push only when every step passed. A PR template asks for both.
+- `Dependent` (claudart, zedup), `PinState` (current, behind, floating), `pinnedRefIn`, `pinStateOf`, and `renderDependentsReport`: for dartrix's current commit, which dependents pin another commit or none and need their own PR. `VerifyStep` (deprecations, analyze, test, in that order) and `tool/dependents/verify.dart`: each dependent is put through them in a scratch copy against the local dartrix, and dartrix is ready to push only when every step passed. `MainAlignment` and `alignmentOf`: verify first checks the branch holds everything origin's main has, so a proof is made on the base the PR merges into. A PR template asks for both.
 
 ### Added — typed handoff return (`lib/src/candidacy/handoff_return.dart`)
 

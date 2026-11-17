@@ -188,4 +188,18 @@ void main() {
       expect(VerifyStep.values.map((s) => s.name), ['deprecations', 'analyze', 'test']);
     });
   });
+
+  group('alignmentOf', () {
+    test('main inside the branch is aligned and may be pushed', () {
+      final alignment = alignmentOf(mainIsAncestor: true);
+      expect(alignment, MainAlignment.aligned);
+      expect(alignment.canPush, isTrue);
+    });
+
+    test('main not inside the branch is behind and may not be pushed', () {
+      final alignment = alignmentOf(mainIsAncestor: false);
+      expect(alignment, MainAlignment.behind);
+      expect(alignment.canPush, isFalse);
+    });
+  });
 }
