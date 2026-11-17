@@ -36,12 +36,33 @@ dependencies:
       url: https://github.com/liitx/dartrix.git
 ''';
 
+const _floatingBeforeAnother = '''
+dependencies:
+  dartrix:
+    git:
+      url: https://github.com/liitx/dartrix.git
+  other:
+    git:
+      url: https://example.com/other.git
+      ref: zzz
+''';
+
+const _mentionedFirst = '''
+# dartrix is pinned below
+dependencies:
+  dartrix:
+    git:
+      ref: abc123
+''';
+
 const _absent = 'dependencies:\n  http: ^1.6.0\n';
 
 const _pinRows = <({String name, String pubspec, String? ref})>[
   (name: 'a ref after a comment', pubspec: _pinned, ref: 'abc123'),
   (name: 'a git url with no ref', pubspec: _floating, ref: null),
   (name: 'the ref of another package is not its', pubspec: _refOfAnother, ref: null),
+  (name: 'the ref of the next package is not its', pubspec: _floatingBeforeAnother, ref: null),
+  (name: 'a comment that names it comes first', pubspec: _mentionedFirst, ref: 'abc123'),
   (name: 'no dartrix at all', pubspec: _absent, ref: null),
 ];
 
