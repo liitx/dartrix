@@ -15,6 +15,7 @@ export 'src/candidacy/candidate_ledger.dart';
 export 'src/candidacy/candidate_ledger_entry.dart';
 export 'src/candidacy/candidate_status.dart';
 export 'src/candidacy/confidence.dart';
+export 'src/candidacy/handoff_return.dart';
 export 'src/candidacy/proof_audit.dart';
 export 'src/config/dartrix_config.dart';
 export 'src/types/app_type.dart';

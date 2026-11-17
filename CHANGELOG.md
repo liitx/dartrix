@@ -7,6 +7,10 @@ Each entry maps 1:1 to a GitHub issue and a package version bump.
 
 ## [Unreleased]
 
+### Added — typed handoff return (`lib/src/candidacy/handoff_return.dart`)
+
+- `HandoffReturnField`: each field of the entry an agent returns, one for each `LedgerField`, with a `ReturnValueKind` (what it carries) and a `ReturnRoute` (what code does with it); `checkReturn` refuses an entry with typed faults (missing, wrongShape, notOfKind); `renderReturnTable` writes the handoff table; `citationSeparator` is the one definition of `path :: text`.
+
 ### Added — candidacy ledger (under `lib/src/candidacy/`)
 
 - `CandidateStatus` (candidate, underTest, proven, bounded, refuted, axiom) with the legal moves and each move's requirements on the enum.
