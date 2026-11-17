@@ -17,6 +17,7 @@ export 'src/candidacy/candidate_status.dart';
 export 'src/candidacy/confidence.dart';
 export 'src/candidacy/handoff_return.dart';
 export 'src/candidacy/proof_audit.dart';
+export 'src/dependents/dependent_pin.dart';
 export 'src/config/dartrix_config.dart';
 export 'src/types/app_type.dart';
 export 'src/types/feature_type.dart';

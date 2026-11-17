@@ -7,6 +7,10 @@ Each entry maps 1:1 to a GitHub issue and a package version bump.
 
 ## [Unreleased]
 
+### Added — dependents (`lib/src/dependents/`, `tool/dependents/report.dart`)
+
+- `Dependent` (claudart, zedup), `PinState` (current, behind, floating), `pinnedRefIn`, `pinStateOf`, and `renderDependentsReport`: for dartrix's current commit, which dependents pin another commit or none and need their own PR. A PR template asks for the report.
+
 ### Added — typed handoff return (`lib/src/candidacy/handoff_return.dart`)
 
 - `HandoffReturnField`: each field of the entry an agent returns, one for each `LedgerField`, with a `ReturnValueKind` (what it carries) and a `ReturnRoute` (what code does with it); `checkReturn` refuses an entry with typed faults (missing, wrongShape, notOfKind); `renderReturnTable` writes the handoff table; `citationSeparator` is the one definition of `path :: text`.
