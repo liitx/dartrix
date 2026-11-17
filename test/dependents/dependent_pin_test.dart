@@ -129,4 +129,63 @@ void main() {
       );
     });
   });
+
+  group('outcomesInOrder', () {
+    const rows = <({
+      String name,
+      Map<VerifyStep, bool> passed,
+      List<StepOutcome> outcomes,
+    })>[
+      (
+        name: 'every step passing',
+        passed: {
+          VerifyStep.deprecations: true,
+          VerifyStep.analyze: true,
+          VerifyStep.test: true,
+        },
+        outcomes: [StepOutcome.passed, StepOutcome.passed, StepOutcome.passed],
+      ),
+      (
+        name: 'a deprecation stops analysis and tests',
+        passed: {VerifyStep.deprecations: false},
+        outcomes: [StepOutcome.failed, StepOutcome.skipped, StepOutcome.skipped],
+      ),
+      (
+        name: 'an analysis failure stops the tests',
+        passed: {VerifyStep.deprecations: true, VerifyStep.analyze: false},
+        outcomes: [StepOutcome.passed, StepOutcome.failed, StepOutcome.skipped],
+      ),
+      (
+        name: 'a failing suite',
+        passed: {
+          VerifyStep.deprecations: true,
+          VerifyStep.analyze: true,
+          VerifyStep.test: false,
+        },
+        outcomes: [StepOutcome.passed, StepOutcome.passed, StepOutcome.failed],
+      ),
+      (
+        name: 'a step that did not report counts as failed',
+        passed: {},
+        outcomes: [StepOutcome.failed, StepOutcome.skipped, StepOutcome.skipped],
+      ),
+    ];
+    for (final row in rows) {
+      test('${row.name} gives ${row.outcomes.map((o) => o.name).join(', ')}', () {
+        expect(outcomesInOrder(row.passed).values, row.outcomes);
+        expect(
+          readyToPush(outcomesInOrder(row.passed)),
+          row.outcomes.every((o) => o == StepOutcome.passed),
+        );
+      });
+    }
+
+    test('a step missing from the outcomes is not ready to push', () {
+      expect(readyToPush({VerifyStep.deprecations: StepOutcome.passed}), isFalse);
+    });
+
+    test('the steps run in the order deprecations, analyze, test', () {
+      expect(VerifyStep.values.map((s) => s.name), ['deprecations', 'analyze', 'test']);
+    });
+  });
 }

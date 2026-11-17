@@ -95,3 +95,52 @@ String renderDependentsReport({
   }
   return buffer.toString();
 }
+
+/// The steps a dartrix change goes through before it is pushed, in this order.
+/// Each runs in a scratch copy of every dependent, against the local dartrix.
+enum VerifyStep {
+  /// The dependent's analyzer reports no use of anything dartrix deprecated.
+  deprecations,
+
+  /// The dependent still analyzes as it did (no new errors or warnings).
+  analyze,
+
+  /// The dependent's full suite passes.
+  test,
+}
+
+/// How one step ended for one dependent.
+enum StepOutcome {
+  /// The step ran and passed.
+  passed,
+
+  /// The step ran and failed.
+  failed,
+
+  /// An earlier step failed, so this one was not run.
+  skipped,
+}
+
+/// Whether dartrix is ready to push as far as one dependent is concerned: every
+/// step passed. A step missing from [outcomes] counts as not passed.
+bool readyToPush(Map<VerifyStep, StepOutcome> outcomes) => VerifyStep.values
+    .every((step) => outcomes[step] == StepOutcome.passed);
+
+/// The outcome of each step given whether it [passed], in step order: the first
+/// failure stops the rest, which are [StepOutcome.skipped].
+Map<VerifyStep, StepOutcome> outcomesInOrder(
+  Map<VerifyStep, bool> passed,
+) {
+  final outcomes = <VerifyStep, StepOutcome>{};
+  var stopped = false;
+  for (final step in VerifyStep.values) {
+    if (stopped) {
+      outcomes[step] = StepOutcome.skipped;
+      continue;
+    }
+    final ok = passed[step] ?? false;
+    outcomes[step] = ok ? StepOutcome.passed : StepOutcome.failed;
+    stopped = !ok;
+  }
+  return outcomes;
+}

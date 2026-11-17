@@ -168,4 +168,4 @@ Read the following files at the start of every session before doing anything els
 
 ## Dependents
 
-A dependent pins the dartrix commit it was proven against. Before opening a PR, run `dart run tool/dependents/report.dart` and paste its output into the PR; every dependent that is `behind` or `floating` needs its own PR bumping the pin, with its full suite, opened and linked by the time this one merges. A dependent with no `ref` cannot say what it was proven against, so it is reported as needing a pin.
+A dependent pins the dartrix commit it was proven against. Order of a dartrix change: (1) `dart run tool/dependents/verify.dart` checks each dependent against the local dartrix, deprecations first, then analysis, then its full suite, in a scratch copy; (2) only when it prints `ready to push`, push; (3) run `dart run tool/dependents/report.dart` and paste its output into the PR; every dependent that is `behind` or `floating` needs its own PR bumping the pin, with its full suite, opened and linked by the time this one merges. A dependent with no `ref` cannot say what it was proven against, so it is reported as needing a pin.
