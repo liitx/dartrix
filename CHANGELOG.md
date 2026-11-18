@@ -7,6 +7,14 @@ Each entry maps 1:1 to a GitHub issue and a package version bump.
 
 ## [Unreleased]
 
+### Added — dependents (`lib/src/dependents/`, `tool/dependents/report.dart`)
+
+- `Dependent` (claudart, zedup), `PinState` (current, behind, floating), `pinnedRefIn`, `pinStateOf`, and `renderDependentsReport`: for dartrix's current commit, which dependents pin another commit or none and need their own PR. `VerifyStep` (deprecations, analyze, test, in that order) and `tool/dependents/verify.dart`: each dependent is put through them in a scratch copy against the local dartrix, and dartrix is ready to push only when every step passed. `MainAlignment` and `alignmentOf`: verify first checks the branch holds everything origin's main has, so a proof is made on the base the PR merges into. A PR template asks for both.
+
+### Added — typed handoff return (`lib/src/candidacy/handoff_return.dart`)
+
+- `HandoffReturnField`: each field of the entry an agent returns, one for each `LedgerField`, with a `ReturnValueKind` (what it carries) and a `ReturnRoute` (what code does with it); `checkReturn` refuses an entry with typed faults (missing, wrongShape, notOfKind); `renderReturnTable` writes the handoff table; `citationSeparator` is the one definition of `path :: text`.
+
 ### Added — candidacy ledger (under `lib/src/candidacy/`)
 
 - `CandidateStatus` (candidate, underTest, proven, bounded, refuted, axiom) with the legal moves and each move's requirements on the enum.

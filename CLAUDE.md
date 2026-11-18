@@ -165,3 +165,7 @@ Read the following files at the start of every session before doing anything els
   GitHub org/owner, not an assumption). If anything doesn't match — STOP
   and surface the mismatch before proceeding. Don't fix it silently; the
   owner decides whether to update the config.
+
+## Dependents
+
+A dependent pins the dartrix commit it was proven against. Order of a dartrix change: (1) `dart run tool/dependents/verify.dart` first checks the branch has everything origin's main has (if not, merge main in, then re-verify, so the proof is made on the base the PR merges into), then checks each dependent against the local dartrix, deprecations first, then analysis, then its full suite, in a scratch copy; (2) only when it prints `ready to push`, push; (3) run `dart run tool/dependents/report.dart` and paste its output into the PR; every dependent that is `behind` or `floating` needs its own PR bumping the pin, with its full suite, opened and linked by the time this one merges. A dependent with no `ref` cannot say what it was proven against, so it is reported as needing a pin.
